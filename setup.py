@@ -5,6 +5,7 @@
 Configuration is done in 'setup.cfg'.
 """
 
+
 import setuptools
 
 if __name__ == "__main__":
