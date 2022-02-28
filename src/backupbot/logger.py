@@ -7,14 +7,16 @@ import sys
 from pathlib import Path
 from typing import List
 
-LOGGING_PATH = Path("/var/log/backupbot")
+# LOGGING_PATH = Path().cwd().joinpath("backupbot.log")
+# LOGGING_PATH.touch()
+
 LOG_FORMAT = "[%(asctime)s][%(name)s][%(levelname)s] %(message)s"
 DEFAULT_LOG_LEVEL = logging.DEBUG
 
-if not LOGGING_PATH.exists():
-    LOGGING_PATH.mkdir(parents=True)
+# if not LOGGING_PATH.exists():
+#     LOGGING_PATH.mkdir(parents=True)
 
-file_handler = logging.FileHandler(LOGGING_PATH.absolute())
+file_handler = logging.FileHandler("log.log")
 stdout_handler = logging.StreamHandler(stream=sys.stdout)
 formatter = logging.Formatter(LOG_FORMAT)
 
