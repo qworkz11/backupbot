@@ -81,3 +81,12 @@ def test_tar_directory_raises_error_if_subprocess_returns_error_exit_code(
 
     with pytest.raises(RuntimeError):
         tar_directory(tmp_path.joinpath("data"), "name", tmp_path)
+
+
+def test_tar_directory_raises_error_if_tar_file_does_not_exist_after_tar_command(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setattr(backupbot.utils.subprocess, "run", lambda *_, **__: subprocess.CompletedProcess((), 0))
+
+    with pytest.raises(RuntimeError):
+        tar_directory(tmp_path, "irrelevant_name", tmp_path)
