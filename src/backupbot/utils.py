@@ -55,7 +55,7 @@ def absolute_path(relative_bind_mounts: List[str], root: Path) -> List[Path]:
     return [root.joinpath(get_volume_path(relative_path)) for relative_path in relative_bind_mounts]
 
 
-def tar_directory(directory: Path, tar_name: str, destination: Path) -> None:
+def tar_directory(directory: Path, tar_name: str, destination: Path) -> Path:
     """Tar-compresses the specified directory.
 
     Args:
@@ -79,4 +79,9 @@ def tar_directory(directory: Path, tar_name: str, destination: Path) -> None:
     proc_return: subprocess.CompletedProcess = subprocess.run(cmd_args)
 
     if proc_return.returncode != 0:
-        raise RuntimeError(f"tar exited with an error: '{proc_return.stderr}'.")
+        raise RuntimeError(f"'tar' exited with an error: '{proc_return.stderr}'.")
+
+    if not tar_file_path.is_file():
+        raise RuntimeError(f"'tar' command failed: File '{tar_file_path}' was not found.")
+
+    return tar_file_path

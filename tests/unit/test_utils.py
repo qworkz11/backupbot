@@ -58,9 +58,9 @@ def test_tar_directory_tar_compresses_directory(tmp_path: Path) -> None:
     tmp_path.joinpath("data").touch("file1")
     tmp_path.joinpath("data").touch("file2")
 
-    tar_directory(tmp_path.joinpath("data"), "data_tar", tmp_path)
+    tar = tar_directory(tmp_path.joinpath("data"), "data_tar", tmp_path)
 
-    assert tmp_path.joinpath("data_tar.tar.gz").is_file()
+    assert tar.is_file()
 
 
 def test_tar_directory_raises_error_for_invalid_paths(tmp_path: Path) -> None:
@@ -73,7 +73,7 @@ def test_tar_directory_raises_error_for_invalid_paths(tmp_path: Path) -> None:
         tar_directory(tmp_path.joinpath("data"), "some_name", tmp_path.joinpath("not_exitsing"))
 
 
-def test_tar_directory_raises_error_if_subprocess_returnes_error_exit_code(
+def test_tar_directory_raises_error_if_subprocess_returns_error_exit_code(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     monkeypatch.setattr(backupbot.utils.subprocess, "run", lambda *_, **__: subprocess.CompletedProcess((), 1))
