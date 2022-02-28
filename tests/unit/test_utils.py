@@ -1,21 +1,24 @@
 """Unit tests for module backupbot.utils."""
 
+import subprocess
 from pathlib import Path
 from typing import Dict
 
+import backupbot.utils
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 from backupbot.utils import (
-    absolute_paths,
-    extract_volumes,
+    absolute_path,
     get_volume_path,
-    load_dockerfile,
+    load_compose_file,
+    tar_directory,
 )
 
 
-def test_load_dockerfile_parses_dockerfile_correctly(
+def test_load_compose_file_parses_dockerfile_correctly(
     dummy_dockerfile_path: Path,
 ) -> None:
-    assert load_dockerfile(dummy_dockerfile_path) == {
+    assert load_compose_file(dummy_dockerfile_path) == {
         "version": "3",
         "services": {
             "first_service": {
@@ -32,28 +35,9 @@ def test_load_dockerfile_parses_dockerfile_correctly(
     }
 
 
-def test_load_dockerfile_raises_error_for_invalid_path() -> None:
+def test_load_compose_file_raises_error_for_invalid_path() -> None:
     with pytest.raises(FileNotFoundError):
-        load_dockerfile(Path("invalid_path"))
-
-
-def test_extract_volumes() -> None:
-    assert extract_volumes(
-        {
-            "version": "3",
-            "services": {
-                "service1": {"volumes": ["./bind_mount1:/container/path", "named_volume1:/another/container/path"]},
-                "service2": {"volumes": ["./bind_mount2:/container/path", "named_volume2:/another/container/path"]},
-            },
-        }
-    ) == (
-        ["named_volume1:/another/container/path", "named_volume2:/another/container/path"],
-        ["./bind_mount1:/container/path", "./bind_mount2:/container/path"],
-    )
-
-
-def test_extract_volumes_returns_empty_list_if_dockerfile_has_no_services_attribute() -> None:
-    assert extract_volumes({"networks": {"nw": None}}) == (None, None)
+        load_compose_file(Path("invalid_path"))
 
 
 def test_get_volume_path() -> None:
@@ -62,8 +46,38 @@ def test_get_volume_path() -> None:
 
 
 def test_absolute_paths_composes_paths_correctly() -> None:
-    assert absolute_paths(["./hello", "./world", "../different/directory"], root=Path("root")) == [
+    assert absolute_path(["./hello", "./world", "../different/directory"], root=Path("root")) == [
         Path("root/hello"),
         Path("root/world"),
         Path("root/../different/directory"),
     ]
+
+
+def test_tar_directory_tar_compresses_directory(tmp_path: Path) -> None:
+    tmp_path.joinpath("data").mkdir()
+    tmp_path.joinpath("data").touch("file1")
+    tmp_path.joinpath("data").touch("file2")
+
+    tar_directory(tmp_path.joinpath("data"), "data_tar", tmp_path)
+
+    assert tmp_path.joinpath("data_tar.tar.gz").is_file()
+
+
+def test_tar_directory_raises_error_for_invalid_paths(tmp_path: Path) -> None:
+    tmp_path.joinpath("data").mkdir()
+
+    with pytest.raises(NotADirectoryError):
+        tar_directory(tmp_path.joinpath("not_exitsing"), "some_name", tmp_path.joinpath("data"))
+
+    with pytest.raises(NotADirectoryError):
+        tar_directory(tmp_path.joinpath("data"), "some_name", tmp_path.joinpath("not_exitsing"))
+
+
+def test_tar_directory_raises_error_if_subprocess_returnes_error_exit_code(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setattr(backupbot.utils.subprocess, "run", lambda *_, **__: subprocess.CompletedProcess((), 1))
+    tmp_path.joinpath("data").mkdir()
+
+    with pytest.raises(RuntimeError):
+        tar_directory(tmp_path.joinpath("data"), "name", tmp_path)
