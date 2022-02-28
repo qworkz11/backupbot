@@ -9,6 +9,35 @@ from typing import Any, Dict, List, Tuple, Union
 from yaml import Loader, load
 
 
+def locate_compose_file(
+    root: Path,
+) -> Union[Path, None]:
+    """Locates a docker-compose.yaml in the specified directory (recursively). Note that there must only be one such
+    file, it is not specified which file will be found in case there are more than one such files.
+
+    Args:
+        root (Path): Directory root to start search from.
+
+    Raises:
+        NotADirectoryError: If the specified directory is invalid.
+
+    Returns:
+        Union[Path, None]: Path to the docker-compose file, or None if none was found.
+    """
+    if not root.exists():
+        raise NotADirectoryError(f"Unable to locate docker-compose.yaml: Directory '{root}' does not exits.")
+
+    if root.joinpath("docker-compose.yaml").is_file():
+        return root.joinpath("docker-compose.yaml")
+
+    directories = [file for file in root.iterdir() if file.is_dir()]
+    if len(directories) == 0:
+        return None
+
+    for dir in directories:
+        return locate_compose_file(dir)
+
+
 def load_compose_file(file: Path) -> Dict:
     """Loads a docker-compose.yaml and returns it as a dictionary.
 

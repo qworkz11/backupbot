@@ -11,8 +11,23 @@ from backupbot.utils import (
     absolute_path,
     get_volume_path,
     load_compose_file,
+    locate_compose_file,
     tar_directory,
 )
+
+
+def test_locate_compose_file_finds_correct_paths(tmp_path: Path) -> None:
+    tmp_path.joinpath("services", "data").mkdir(parents=True)
+    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
+    tmp_path.joinpath("services", "docker-compose.yaml").touch()
+
+    assert locate_compose_file(tmp_path) == tmp_path.joinpath("services", "docker-compose.yaml")
+    assert locate_compose_file(tmp_path.joinpath("services", "data")) == None
+
+
+def test_locate_compose_file_raises_error_for_invalid_directory() -> None:
+    with pytest.raises(NotADirectoryError):
+        locate_compose_file(Path("not_exitsting_path"))
 
 
 def test_load_compose_file_parses_dockerfile_correctly(
