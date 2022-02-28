@@ -14,4 +14,4 @@ def dummy_dockerfile_path() -> Path:
     Returns:
         Path: Path instance.
     """
-    return Path(__file__).parent.joinpath("utils", "Dockerfile")
+    return Path(__file__).parent.joinpath("utils", "docker-compose.yaml")
