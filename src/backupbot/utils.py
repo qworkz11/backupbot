@@ -4,41 +4,38 @@
 
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Dict, List
 
 from yaml import Loader, load
 
 
-def locate_compose_file(
-    root: Path,
-) -> Union[Path, None]:
+def locate_compose_files(root: Path, file_name: str, result: List[Path]) -> None:
     """Locates a docker-compose.yaml in the specified directory (recursively). Note that there must only be one such
     file, it is not specified which file will be found in case there are more than one such files.
 
     Args:
         root (Path): Directory root to start search from.
+        file_name (str): File name to search for.
+        restult (List[Path]): List to store found paths in.
 
     Raises:
         NotADirectoryError: If the specified directory is invalid.
-
-    Returns:
-        Union[Path, None]: Path to the docker-compose file, or None if none was found.
     """
     if not root.exists():
         raise NotADirectoryError(f"Unable to locate docker-compose.yaml: Directory '{root}' does not exits.")
 
     if root.joinpath("docker-compose.yaml").is_file():
-        return root.joinpath("docker-compose.yaml")
+        result.append(root.joinpath("docker-compose.yaml"))
 
     directories = [file for file in root.iterdir() if file.is_dir()]
     if len(directories) == 0:
-        return None
+        return
 
     for dir in directories:
-        return locate_compose_file(dir)
+        locate_compose_files(dir, file_name, result)
 
 
-def load_compose_file(file: Path) -> Dict:
+def load_compose_file(path: Path) -> Dict:
     """Loads a docker-compose.yaml and returns it as a dictionary.
 
     Args:
@@ -50,10 +47,10 @@ def load_compose_file(file: Path) -> Dict:
     Returns:
         Dict: Components of the docker-compose.yaml.
     """
-    if not file.exists():
-        raise FileNotFoundError(f"Unable to load Dockerfile '{file}': File does not extist.")
+    if not path.exists():
+        raise FileNotFoundError(f"Unable to load Dockerfile '{path}': File does not extist.")
 
-    with open(file.absolute(), "r") as file:
+    with open(path.absolute(), "r") as file:
         content = load(file, Loader=Loader)
 
     return content

@@ -14,7 +14,7 @@ FAKE_TIMESTAMP = datetime.datetime(2022, 2, 27, 10, 0, 0, 0)
 class FakeDatetime:
     """Mock for datetime.datetime."""
 
-    def now() -> datetime.datetime:
+    def now(self) -> datetime.datetime:
         """Mock for datetime.datetime.now().
 
         Returns:
@@ -28,7 +28,7 @@ def test_backupbot_backup_bind_mount_with_existing_target(
 ) -> None:
     data_dir = tmp_path.joinpath("data")
     data_dir.mkdir()
-    data_dir.touch("file")
+    data_dir.joinpath("file").touch()
 
     backup_dir = tmp_path.joinpath("backup")
     backup_dir.mkdir()
@@ -49,7 +49,7 @@ def test_backupbot_backup_bind_mount_creates_service_root_directory_if_it_does_n
 ) -> None:
     data_dir = tmp_path.joinpath("data")
     data_dir.mkdir()
-    data_dir.touch("file")
+    data_dir.joinpath("file").touch()
 
     backup_dir = tmp_path.joinpath("backup")
     backup_dir.mkdir()

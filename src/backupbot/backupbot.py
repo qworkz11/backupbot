@@ -5,7 +5,6 @@
 import datetime
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 from backupbot.logger import logger
 from backupbot.utils import load_compose_file, tar_directory

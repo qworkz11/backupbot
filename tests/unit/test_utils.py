@@ -2,7 +2,7 @@
 
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import List
 
 import backupbot.utils
 import pytest
@@ -11,23 +11,56 @@ from backupbot.utils import (
     absolute_path,
     get_volume_path,
     load_compose_file,
-    locate_compose_file,
+    locate_compose_files,
     tar_directory,
 )
 
 
-def test_locate_compose_file_finds_correct_paths(tmp_path: Path) -> None:
+def test_locate_compose_files_finds_single_file(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
     tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
     tmp_path.joinpath("services", "docker-compose.yaml").touch()
 
-    assert locate_compose_file(tmp_path) == tmp_path.joinpath("services", "docker-compose.yaml")
-    assert locate_compose_file(tmp_path.joinpath("services", "data")) == None
+    result: List[Path] = []
+    locate_compose_files(tmp_path, "docker-compose.yaml", result)
+
+    assert result == [tmp_path.joinpath("services", "docker-compose.yaml")]
+
+
+def test_locate_compose_files_finds_multiple_files(tmp_path: Path) -> None:
+    tmp_path.joinpath("services", "data").mkdir(parents=True)
+    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
+
+    tmp_path.joinpath("services", "docker-compose.yaml").touch()
+    tmp_path.joinpath("services", "data", "docker-compose.yaml").touch()
+    tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
+
+    result: List[Path] = []
+    locate_compose_files(tmp_path, "docker-compose.yaml", result)
+
+    # order does not matter:
+    assert not (
+        set(result).difference(
+            [
+                tmp_path.joinpath("services", "docker-compose.yaml"),
+                tmp_path.joinpath("services", "data", "docker-compose.yaml"),
+                tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
+            ]
+        )
+    )
+    assert len(result) == len(set(result))  # to make sure no doubles are found
+
+
+def test_locate_compose_files_returns_empty_list_if_no_file_is_found(tmp_path: Path) -> None:
+    result: List[Path] = []
+    locate_compose_files(tmp_path, "docker-compose.yaml", result)
+
+    assert len(result) == 0
 
 
 def test_locate_compose_file_raises_error_for_invalid_directory() -> None:
     with pytest.raises(NotADirectoryError):
-        locate_compose_file(Path("not_exitsting_path"))
+        locate_compose_files(Path("not_exitsting_path"), "docker-compose.yaml", [])
 
 
 def test_load_compose_file_parses_dockerfile_correctly(
@@ -70,8 +103,8 @@ def test_absolute_paths_composes_paths_correctly() -> None:
 
 def test_tar_directory_tar_compresses_directory(tmp_path: Path) -> None:
     tmp_path.joinpath("data").mkdir()
-    tmp_path.joinpath("data").touch("file1")
-    tmp_path.joinpath("data").touch("file2")
+    tmp_path.joinpath("data", "file1").touch()
+    tmp_path.joinpath("data", "file2").touch()
 
     tar = tar_directory(tmp_path.joinpath("data"), "data_tar", tmp_path)
 
