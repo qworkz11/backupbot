@@ -8,7 +8,7 @@ import pytest
 
 
 @pytest.fixture
-def dummy_dockerfile_path() -> Path:
+def dummy_docker_compose_file() -> Path:
     """Returns the path to the dummy Dockerfile located in /tests/utils.
 
     Returns:

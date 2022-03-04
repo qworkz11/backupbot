@@ -9,9 +9,9 @@ from typing import Dict, List
 from yaml import Loader, load
 
 
-def locate_compose_files(root: Path, file_name: str, result: List[Path]) -> None:
-    """Locates a docker-compose.yaml in the specified directory (recursively). Note that there must only be one such
-    file, it is not specified which file will be found in case there are more than one such files.
+def locate_files(root: Path, file_name: str, result: List[Path]) -> None:
+    """Locates all files with the specified name in the specified directory (recursively) and add their paths to the
+    specified result list.
 
     Args:
         root (Path): Directory root to start search from.
@@ -32,10 +32,10 @@ def locate_compose_files(root: Path, file_name: str, result: List[Path]) -> None
         return
 
     for dir in directories:
-        locate_compose_files(dir, file_name, result)
+        locate_files(dir, file_name, result)
 
 
-def load_compose_file(path: Path) -> Dict:
+def load_yaml_file(path: Path) -> Dict:
     """Loads a docker-compose.yaml and returns it as a dictionary.
 
     Args:
@@ -57,7 +57,7 @@ def load_compose_file(path: Path) -> Dict:
 
 
 def get_volume_path(volume_string: str) -> str:
-    """Returns the relative path of the volume as it is specified in the compose file.
+    """Returns the relative path of the volume or bind mount as it is specified in the compose file.
 
     Args:
         volume_string (str): Docker volume.

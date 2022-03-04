@@ -10,24 +10,24 @@ from _pytest.monkeypatch import MonkeyPatch
 from backupbot.utils import (
     absolute_path,
     get_volume_path,
-    load_compose_file,
-    locate_compose_files,
+    load_yaml_file,
+    locate_files,
     tar_directory,
 )
 
 
-def test_locate_compose_files_finds_single_file(tmp_path: Path) -> None:
+def test_locate_files_finds_single_file(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
     tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
     tmp_path.joinpath("services", "docker-compose.yaml").touch()
 
     result: List[Path] = []
-    locate_compose_files(tmp_path, "docker-compose.yaml", result)
+    locate_files(tmp_path, "docker-compose.yaml", result)
 
     assert result == [tmp_path.joinpath("services", "docker-compose.yaml")]
 
 
-def test_locate_compose_files_finds_multiple_files(tmp_path: Path) -> None:
+def test_locate_files_finds_multiple_files(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
     tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
 
@@ -36,7 +36,7 @@ def test_locate_compose_files_finds_multiple_files(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
 
     result: List[Path] = []
-    locate_compose_files(tmp_path, "docker-compose.yaml", result)
+    locate_files(tmp_path, "docker-compose.yaml", result)
 
     # order does not matter:
     assert not (
@@ -51,41 +51,41 @@ def test_locate_compose_files_finds_multiple_files(tmp_path: Path) -> None:
     assert len(result) == len(set(result))  # to make sure no doubles are found
 
 
-def test_locate_compose_files_returns_empty_list_if_no_file_is_found(tmp_path: Path) -> None:
+def test_locate_files_returns_empty_list_if_no_file_is_found(tmp_path: Path) -> None:
     result: List[Path] = []
-    locate_compose_files(tmp_path, "docker-compose.yaml", result)
+    locate_files(tmp_path, "docker-compose.yaml", result)
 
     assert len(result) == 0
 
 
-def test_locate_compose_file_raises_error_for_invalid_directory() -> None:
+def test_locate_files_raises_error_for_invalid_directory() -> None:
     with pytest.raises(NotADirectoryError):
-        locate_compose_files(Path("not_exitsting_path"), "docker-compose.yaml", [])
+        locate_files(Path("not_exitsting_path"), "docker-compose.yaml", [])
 
 
-def test_load_compose_file_parses_dockerfile_correctly(
-    dummy_dockerfile_path: Path,
+def test_load_yaml_file_parses_dockerfile_correctly(
+    dummy_docker_compose_file: Path,
 ) -> None:
-    assert load_compose_file(dummy_dockerfile_path) == {
+    assert load_yaml_file(dummy_docker_compose_file) == {
         "version": "3",
         "services": {
             "first_service": {
                 "container_name": "service1",
                 "ports": ["80:80", "443:443"],
-                "volumes": ["./bind_mount1:/container/path", "named_volume1:/another/container/path"],
+                "volumes": ["./bind_mount1:/container1/path", "named_volume1:/another/container1/path"],
             },
             "second_service": {
                 "image": "source/image",
-                "volumes": ["named_volume2:/container/path", "./bind_mount2:/another/container/path"],
+                "volumes": ["named_volume2:/container2/path", "./bind_mount2:/another/container2/path"],
             },
         },
         "networks": ["a_random_network"],
     }
 
 
-def test_load_compose_file_raises_error_for_invalid_path() -> None:
+def test_load_yaml_file_raises_error_for_invalid_path() -> None:
     with pytest.raises(FileNotFoundError):
-        load_compose_file(Path("invalid_path"))
+        load_yaml_file(Path("invalid_path"))
 
 
 def test_get_volume_path() -> None:
