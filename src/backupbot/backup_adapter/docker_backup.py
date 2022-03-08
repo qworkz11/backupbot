@@ -3,12 +3,18 @@ from typing import Dict, List, Tuple
 
 from backupbot.backup_adapter.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
-from backupbot.utils import load_yaml_file, tar_directory
+from backupbot.utils import load_yaml_file, locate_files, tar_directory
 
 
 class DockerBackupAdapter(ContainerBackupAdapter):
     def __init__(self):
         pass
+
+    def collect_config_files(self, root: Path) -> List[Path]:
+        compose_files: List[Path] = []
+        locate_files(root, "docker-compose.yaml", compose_files)
+
+        return compose_files
 
     def parse_config(self, files: List[Path], root_directory: Path) -> Dict[str, Dict[str, List]]:
         num_files = len(files)

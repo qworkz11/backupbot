@@ -7,6 +7,10 @@ from typing import Dict, List
 
 class ContainerBackupAdapter(ABC):
     @abstractmethod
+    def collect_config_files(self, root: Path) -> List[Path]:
+        ...
+
+    @abstractmethod
     def parse_config(self, file: Path, root_directory: Path) -> Dict[str, Dict[str, List]]:
         ...
 

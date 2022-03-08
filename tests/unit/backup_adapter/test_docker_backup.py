@@ -7,6 +7,30 @@ from backupbot.data_structures import HostDirectory, Volume
 from pytest import MonkeyPatch
 
 
+def test_docker_backup_adapter_collect_config_files(tmp_path: Path) -> None:
+    tmp_path.joinpath("services", "data").mkdir(parents=True)
+    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
+
+    tmp_path.joinpath("services", "docker-compose.yaml").touch()
+    tmp_path.joinpath("services", "data", "docker-compose.yaml").touch()
+    tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
+
+    dba = DockerBackupAdapter()
+
+    files = dba.collect_config_files(tmp_path)
+
+    assert not (
+        set(files).difference(
+            [
+                tmp_path.joinpath("services", "docker-compose.yaml"),
+                tmp_path.joinpath("services", "data", "docker-compose.yaml"),
+                tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
+            ]
+        )
+    )
+    assert len(files) == len(set(files))
+
+
 def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_correctly(
     tmp_path: Path, dummy_docker_compose_file: Path
 ) -> None:
