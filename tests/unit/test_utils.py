@@ -12,6 +12,7 @@ from backupbot.utils import (
     get_volume_path,
     load_yaml_file,
     locate_files,
+    match_files,
     tar_directory,
 )
 
@@ -61,6 +62,54 @@ def test_locate_files_returns_empty_list_if_no_file_is_found(tmp_path: Path) -> 
 def test_locate_files_raises_error_for_invalid_directory() -> None:
     with pytest.raises(NotADirectoryError):
         locate_files(Path("not_exitsting_path"), "docker-compose.yaml", [])
+
+
+def test_match_files_finds_single_file(tmp_path: Path) -> None:
+    tmp_path.joinpath("services", "data").mkdir(parents=True)
+    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
+    tmp_path.joinpath("services", "docker-compose.yaml").touch()
+
+    result: List[Path] = []
+    match_files(tmp_path, "*.yaml", result)
+
+    assert result == [tmp_path.joinpath("services", "docker-compose.yaml")]
+
+
+def test_match_files_finds_multiple_files(tmp_path: Path) -> None:
+    tmp_path.joinpath("services", "data").mkdir(parents=True)
+    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
+
+    tmp_path.joinpath("services", "docker-compose.yaml").touch()
+    tmp_path.joinpath("services", "data", "docker-compose.yaml").touch()
+    tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
+
+    result: List[Path] = []
+    match_files(tmp_path, "*.yaml", result)
+
+    # order does not matter:
+    assert not (
+        set(result).difference(
+            [
+                tmp_path.joinpath("services", "docker-compose.yaml"),
+                tmp_path.joinpath("services", "data", "docker-compose.yaml"),
+                tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
+            ]
+        )
+    )
+    assert len(result) == len(set(result))  # to make sure no doubles are found
+
+
+def test_match_files_returns_empty_list_when_no_files_match(tmp_path: Path) -> None:
+    result: List[Path] = []
+
+    match_files(tmp_path, "*.not_exising", result)
+
+    assert len(result) == 0
+
+
+def test_match_files_raises_error_for_invalid_directory() -> None:
+    with pytest.raises(NotADirectoryError):
+        match_files(Path("not_exitsting_path"), "unimportant_pattern", [])
 
 
 def test_load_yaml_file_parses_dockerfile_correctly(

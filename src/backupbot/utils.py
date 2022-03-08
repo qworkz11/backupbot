@@ -35,6 +35,32 @@ def locate_files(root: Path, file_name: str, result: List[Path]) -> None:
         locate_files(dir, file_name, result)
 
 
+def match_files(root: Path, pattern: str, result: List[Path]) -> None:
+    """Finds all files (recursively) that match the specified pattern.
+
+    Args:
+        root (Path): Directory to start search from.
+        pattern (str): Pattern to match.
+        result (List[Path]): List to store found paths in.
+
+    Raises:
+        NotADirectoryError: If root is no valid directory.
+    """
+    if not root.exists():
+        raise NotADirectoryError(f"Unable to locate docker-compose.yaml: Directory '{root}' does not exits.")
+
+    for file in [f for f in root.iterdir() if f.is_file()]:
+        if file.match(pattern):
+            result.append(file)
+
+    directories = [file for file in root.iterdir() if file.is_dir()]
+    if len(directories) == 0:
+        return
+
+    for dir in directories:
+        match_files(dir, pattern, result)
+
+
 def load_yaml_file(path: Path) -> Dict:
     """Loads a docker-compose.yaml and returns it as a dictionary.
 
