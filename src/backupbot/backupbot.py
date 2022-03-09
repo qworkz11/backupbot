@@ -5,9 +5,12 @@
 import datetime
 import sys
 from pathlib import Path
+from typing import Dict, List, Union
 
+from backupbot.backup_adapter.container_backup_adapter import ContainerBackupAdapter
+from backupbot.data_structures import HostDirectory, Volume
 from backupbot.logger import logger
-from backupbot.utils import load_compose_file, tar_directory
+from backupbot.utils import load_yaml_file, tar_directory
 
 
 class BackupBot:
@@ -17,7 +20,6 @@ class BackupBot:
         self,
         root: Path,
         destination: Path,
-        dockerfile: Path,
     ) -> None:
         """Constructor.
 
@@ -28,35 +30,50 @@ class BackupBot:
         """
         self.root = root
         self.destination = destination
-        self.dockerfile = dockerfile
+        self.backup_adapter: ContainerBackupAdapter = None
 
-    def run(self) -> None:
-        """Executes all backup tasks."""
-        try:
-            docker_content = load_compose_file(self.dockerfile)
-        except FileNotFoundError:
-            logger.error(f"Unable to load Dockerfile '{self.dockerfile}'.")
-            sys.exit(1)
+    def create_target_folders(self, parsed_config: Dict[str, Dict[str, List[Union[Volume, HostDirectory]]]]) -> None:
+        for service, persistence_lists in parsed_config.items():
+            if "host_directories" in persistence_lists:
+                for host_directory in persistence_lists["host_directories"]:
+                    path_tag = str(host_directory.path).replace("/", "-")
+                    path = self.destination.joinpath(service, "host_directories", path_tag)
+                    if not path.is_dir():
+                        path.mkdir(parents=True)
 
-        for service_name, service_attributes in docker_content["services"]:
-            if "volumes" in service_attributes:
-                for volume in service_attributes["volumes"]:
-                    if volume.startswith("."):
-                        self.backup_bind_mount(volume, service_name)
-                    else:
-                        self.backup_named_volume(volume)
+            if "volumes" in persistence_lists:
+                for volume in persistence_lists["volumes"]:
+                    path = self.destination.joinpath(service, "volumes", volume.name)
+                    if not path.is_dir():
+                        path.mkdir(parents=True)
 
-    def backup_bind_mount(self, bind_mount_name: str, service_name: str) -> None:
-        """Backs up the specifies bind mount.
+    # def run(self) -> None:
+    #     """Executes all backup tasks."""
+    #     try:
+    #         docker_content = load_yaml_file(self.dockerfile)
+    #     except FileNotFoundError:
+    #         logger.error(f"Unable to load Dockerfile '{self.dockerfile}'.")
+    #         sys.exit(1)
 
-        Args:
-            bind_mount_name (str): Bind mount name as specified in the docker-compose file.
-            service_name (str): Name of the Docker service the volume belongs to.
-        """
-        target = self.destination.joinpath(service_name, "bind_mounts")
-        if not target.exists():
-            target.mkdir(parents=True)
+    #     for service_name, service_attributes in docker_content["services"]:
+    #         if "volumes" in service_attributes:
+    #             for volume in service_attributes["volumes"]:
+    #                 if volume.startswith("."):
+    #                     self.backup_bind_mount(volume, service_name)
+    #                 # else:
+    #                 #     self.backup_named_volume(volume)
 
-        bind_mount_path: Path = self.root.joinpath(bind_mount_name)
+    # def backup_bind_mount(self, bind_mount_name: str, service_name: str) -> None:
+    #     """Backs up the specifies bind mount.
 
-        tar_directory(bind_mount_path, f"{datetime.datetime.now()}-{bind_mount_name}", target)
+    #     Args:
+    #         bind_mount_name (str): Bind mount name as specified in the docker-compose file.
+    #         service_name (str): Name of the Docker service the volume belongs to.
+    #     """
+    #     target = self.destination.joinpath(service_name, "bind_mounts")
+    #     if not target.exists():
+    #         target.mkdir(parents=True)
+
+    #     bind_mount_path: Path = self.root.joinpath(bind_mount_name)
+
+    #     tar_directory(bind_mount_path, f"{datetime.datetime.now()}-{bind_mount_name}", target)
