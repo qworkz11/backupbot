@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 from backupbot.backup_adapter.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
@@ -44,7 +44,7 @@ class DockerBackupAdapter(ContainerBackupAdapter):
         if not "services" in compose_content.keys():
             raise RuntimeError("Failed to parse docker-compose.yaml: File has no 'services' key.")
 
-        parsed = {}
+        parsed: Dict[str, Dict[str, Union[List[Volume], List[HostDirectory]]]] = {}
 
         for service_name, service_attributes in compose_content["services"].items():
             if "volumes" in service_attributes:

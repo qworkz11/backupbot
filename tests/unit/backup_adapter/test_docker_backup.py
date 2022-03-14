@@ -56,7 +56,7 @@ def test_docker_backup__parse_compose_file_raises_error_if_no_services_key_in_fi
     monkeypatch.setattr(backupbot.backup_adapter.docker_backup, "load_yaml_file", lambda *_, **__: {})
 
     with pytest.raises(RuntimeError):
-        dba._parse_compose_file(None, tmp_path)
+        dba._parse_compose_file(None, tmp_path)  # type: ignore
 
 
 def test_docker_backup_parse_config_raises_error_when_multiple_files_are_speccified(tmp_path: Path) -> None:
