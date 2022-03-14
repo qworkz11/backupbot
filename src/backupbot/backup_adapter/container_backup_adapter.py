@@ -11,7 +11,7 @@ class ContainerBackupAdapter(ABC):
         ...
 
     @abstractmethod
-    def parse_config(self, file: Path, root_directory: Path) -> Dict[str, Dict[str, List]]:
+    def parse_config(self, files: List[Path], root_directory: Path) -> Dict[str, Dict[str, List]]:
         ...
 
     @abstractmethod

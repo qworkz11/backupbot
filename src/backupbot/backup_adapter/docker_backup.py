@@ -32,7 +32,7 @@ class DockerBackupAdapter(ContainerBackupAdapter):
         tar_file_name = self._make_backup_name(directory, container_name)
         tar_directory(directory, tar_file_name, target)
 
-    def _parse_volume(self, volume: str) -> Tuple[Path, Path]:
+    def _parse_volume(self, volume: str) -> Tuple[str, str]:
         if not ":" in volume:
             raise ValueError(f"Unable to parse volume: Delimiter ':' missing in '{volume}'.")
         split = volume.split(":")
@@ -54,9 +54,9 @@ class DockerBackupAdapter(ContainerBackupAdapter):
                 for volume in service_attributes["volumes"]:
                     if volume.startswith("."):
                         host_directory, container_mount_point = self._parse_volume(volume)
-                        host_directory = root_directory.joinpath(host_directory)
+                        host_directory_path = root_directory.joinpath(host_directory)
 
-                        bind_mounts.append(HostDirectory(host_directory, Path(container_mount_point)))
+                        bind_mounts.append(HostDirectory(host_directory_path, Path(container_mount_point)))
                     else:
                         volume_name, container_mount_point = self._parse_volume(volume)
                         named_volumes.append(Volume(volume_name, Path(container_mount_point)))
