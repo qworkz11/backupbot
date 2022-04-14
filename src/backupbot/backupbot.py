@@ -47,6 +47,8 @@ class BackupBot:
                     if not path.is_dir():
                         path.mkdir(parents=True)
 
+    # def update_file_versions(self) -> None:
+
     # def run(self) -> None:
     #     """Executes all backup tasks."""
     #     try:
