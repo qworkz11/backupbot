@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Union
 
-from backupbot.backup_adapter.container_backup_adapter import ContainerBackupAdapter
+from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
 from backupbot.logger import logger
 from backupbot.utils import load_yaml_file, tar_directory

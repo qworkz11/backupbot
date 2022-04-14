@@ -1,9 +1,9 @@
 from pathlib import Path
 
-import backupbot.backup_adapter.docker_backup
+import backupbot.docker.docker_backup
 import pytest
-from backupbot.backup_adapter.docker_backup import DockerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
+from backupbot.docker.docker_backup import DockerBackupAdapter
 from pytest import MonkeyPatch
 
 
@@ -53,7 +53,7 @@ def test_docker_backup__parse_compose_file_raises_error_if_no_services_key_in_fi
 ) -> None:
     dba = DockerBackupAdapter()
 
-    monkeypatch.setattr(backupbot.backup_adapter.docker_backup, "load_yaml_file", lambda *_, **__: {})
+    monkeypatch.setattr(backupbot.docker.docker_backup, "load_yaml_file", lambda *_, **__: {})
 
     with pytest.raises(RuntimeError):
         dba._parse_compose_file(None, tmp_path)  # type: ignore
