@@ -89,11 +89,11 @@ def test_update_version_numbers(tmp_path: Path) -> None:
         tmp_path.joinpath("file-0-0.txt"),
         tmp_path.joinpath("file.txt"),
     ]
+
     for file in files:
         file.touch()
+        file.write_text(file.name)
         time.sleep(0.1)
-
-    creation_times = [file.lstat().st_ctime for file in files]
 
     renamed = update_version_numbers(tmp_path, "txt", version_pattern=VERSIONING_TO_PATTERN["d-d"], major=False)
 
@@ -102,9 +102,9 @@ def test_update_version_numbers(tmp_path: Path) -> None:
     assert tmp_path.joinpath("file-0-1.txt").is_file()
     assert tmp_path.joinpath("file-0-0.txt").is_file()
 
-    assert pytest.approx(tmp_path.joinpath("file-0-3.txt").lstat().st_ctime, 0.01) == creation_times[0]
-    assert pytest.approx(tmp_path.joinpath("file-0-2.txt").lstat().st_ctime, 0.01) == creation_times[1]
-    assert pytest.approx(tmp_path.joinpath("file-0-1.txt").lstat().st_ctime, 0.01) == creation_times[2]
-    assert pytest.approx(tmp_path.joinpath("file-0-0.txt").lstat().st_ctime, 0.01) == creation_times[3]
+    assert tmp_path.joinpath("file-0-3.txt").read_text() == "file-0-2.txt"
+    assert tmp_path.joinpath("file-0-2.txt").read_text() == "file-0-1.txt"
+    assert tmp_path.joinpath("file-0-1.txt").read_text() == "file-0-0.txt"
+    assert tmp_path.joinpath("file-0-0.txt").read_text() == "file.txt"
 
     assert len(renamed) == len(files)

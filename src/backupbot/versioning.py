@@ -51,10 +51,12 @@ def create_target_names(
     version_pattern: Pattern[str] = VERSIONING_TO_PATTERN["d-d"],
     major: bool = False,
 ) -> List[Tuple[Path, Path]]:
-    """Creates a path path with an updated version number if necessary for each file in the list.
+    """Creates a path with an updated version number if necessary for each file in the list.
 
     Each tuple in the returned list contains the old path and the new path on the 0th and 1st index, respectively. If no
     new file is detected (aka the versions do not need to be updated) the unchanged path is returned.
+    The order of files is determined based on their creation time. This means that the oldest file gets the highest
+    version number, the youngest gets the lowest.
 
     Note: The files are not renamed, this needs to be done separately.
 
