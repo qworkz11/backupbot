@@ -7,19 +7,18 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Union
 
+from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
 from backupbot.logger import logger
-from backupbot.utils import load_yaml_file, tar_directory
+from backupbot.utils import load_yaml_file, tar_file_or_directory
 
 
 class BackupBot:
     """Class which coordinates all backup tasks."""
 
     def __init__(
-        self,
-        root: Path,
-        destination: Path,
+        self, root: Path, destination: Path, backup_config: Path, container_runtime_environment: str = "docker"
     ) -> None:
         """Constructor.
 
@@ -30,22 +29,59 @@ class BackupBot:
         """
         self.root = root
         self.destination = destination
+        self.backup_config: Path = backup_config
         self.backup_adapter: ContainerBackupAdapter = None
+        self.cri = container_runtime_environment
 
-    def create_target_folders(self, parsed_config: Dict[str, Dict[str, List[Union[Volume, HostDirectory]]]]) -> None:
-        for service, persistence_lists in parsed_config.items():
-            if "host_directories" in persistence_lists:
-                for host_directory in persistence_lists["host_directories"]:
-                    path_tag = str(host_directory.path).replace("/", "-")
-                    path = self.destination.joinpath(service, "host_directories", path_tag)
-                    if not path.is_dir():
-                        path.mkdir(parents=True)
+    def create_service_backup_structure(
+        self, storage_info: Dict[str, Dict[str, List]], backup_tasks: List[AbstractBackupTask]
+    ) -> None:
+        for service in storage_info.keys():
 
-            if "volumes" in persistence_lists:
-                for volume in persistence_lists["volumes"]:
-                    path = self.destination.joinpath(service, "volumes", volume.name)
-                    if not path.is_dir():
-                        path.mkdir(parents=True)
+            dir_names = [type(task).target_dir_name for task in backup_tasks]
+            dir_names_unique = set(dir_names)
+
+            for name in dir_names_unique:
+                subdir_path = self.root.joinpath(service, name)
+                if not subdir_path.is_dir():
+                    subdir_path.mkdir(parents=True)
+
+    # def create_target_folders(self, storage_info: Dict[str, Dict[str, List[Union[Volume, HostDirectory]]]]) -> None:
+    #     for service in storage_info.keys():
+
+    #     for service, persistence_lists in parsed_config.items():
+    #         if "host_directories" in persistence_lists:
+    #             for host_directory in persistence_lists["host_directories"]:
+    #                 path_tag = str(host_directory.path).replace("/", "-")
+    #                 path = self.destination.joinpath(service, "host_directories", path_tag)
+    #                 if not path.is_dir():
+    #                     path.mkdir(parents=True)
+
+    #         if "volumes" in persistence_lists:
+    #             for volume in persistence_lists["volumes"]:
+    #                 path = self.destination.joinpath(service, "volumes", volume.name)
+    #                 if not path.is_dir():
+    #                     path.mkdir(parents=True)
+
+    def run(self) -> None:
+        storage_files = self.backup_adapter.collect_storage_info(self.root)
+        storage_info: Dict[str, Dict[str, List]] = self.backup_adapter.parse_storage_info(storage_files, self.root)
+
+        backup_tasks: Dict[List[AbstractBackupTask]] = self.backup_adapter.parse_backup_scheme(self.backup_config)
+
+        # this creates a folder structure as follows (here for a Docker backup):
+        # root
+        # |-service1
+        # |     |-bind_mounts
+        # |     |-volumes
+        # |     |-mysql_databases
+        # |-service2
+        # |     |-mysql_databases
+        self.create_service_backup_structure(storage_info, backup_tasks)
+
+        for service_name, tasks in backup_tasks.items():
+            for task in tasks:
+                task(storage_info, self.root.joinpath(service_name))
 
     # def update_file_versions(self) -> None:
 

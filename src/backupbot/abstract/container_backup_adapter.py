@@ -4,19 +4,25 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List
 
+from backupbot.abstract.backup_task import AbstractBackupTask
+
 
 class ContainerBackupAdapter(ABC):
     @abstractmethod
-    def collect_config_files(self, root: Path) -> List[Path]:
+    def collect_storage_info(self, root: Path) -> List[Path]:
         ...
 
     @abstractmethod
-    def parse_config(self, files: List[Path], root_directory: Path) -> Dict[str, Dict[str, List]]:
+    def parse_storage_info(self, files: List[Path], root_directory: Path) -> Dict[str, Dict[str, List]]:
         ...
 
     @abstractmethod
-    def backup_host_directory(self, directory: Path, destination: Path, container_name: str) -> None:
+    def parse_backup_scheme(self, file: Path) -> Dict[str, List[AbstractBackupTask]]:
         ...
+
+    # @abstractmethod
+    # def backup_host_directory(self, directory: Path, destination: Path, container_name: str) -> None:
+    #     ...
 
     # @abstractmethod
     # def stop_container(self, container_id: str) -> None:
