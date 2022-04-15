@@ -3,6 +3,7 @@
 """Backupbot utility functions."""
 
 import subprocess
+from importlib.resources import path
 from pathlib import Path
 from typing import Dict, List
 
@@ -107,12 +108,12 @@ def absolute_path(relative_bind_mounts: List[str], root: Path) -> List[Path]:
     return [root.joinpath(get_volume_path(relative_path)) for relative_path in relative_bind_mounts]
 
 
-def tar_directory(directory: Path, tar_name: str, destination: Path) -> Path:
-    """Tar-compresses the specified directory.
+def tar_file_or_directory(directory: Path, tar_name: str, destination: Path) -> Path:
+    """Tar-compresses the specified file or directory.
 
     Args:
-        directory (Path): The directory to tar-compress.
-        tar_name (str): Target name of the tar file (will be combined with a timestamp).
+        directory (Path): The file or directory to tar-compress.
+        tar_name (str): Target name of the tar file.
         destination (Path): Target directory for the tar file.
 
     Raises:
@@ -137,3 +138,26 @@ def tar_directory(directory: Path, tar_name: str, destination: Path) -> Path:
         raise RuntimeError(f"'tar' command failed: File '{tar_file_path}' was not found.")
 
     return tar_file_path
+
+
+def path_to_string(directory: Path, num_steps: int = -1, delim: str = "-") -> str:
+    """Creates a string from the specied path. Path delimiters '/' are replaced by the specified delimiter.
+
+    Args:
+        directory (Path): Path instance.
+        num_steps (int, optional): Specifies how many components of the path are considered, starting from the back.
+            Choosing 1 returns only the last component of the path. Defaults to -1.
+        delim (str, optional): Character to use as a delimiter in the created string. Defaults to "-".
+
+    Returns:
+        str: String version of the path.
+    """
+    path_components = str(directory).split("/")
+    if path_components[0] == "":
+        path_components = path_components[1:]
+
+    if num_steps == -1:
+        return delim.join(path_components)
+
+    start = len(path_components) - num_steps
+    return delim.join(path_components[start:])

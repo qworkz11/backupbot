@@ -7,7 +7,7 @@ from backupbot.docker.docker_backup import DockerBackupAdapter
 from pytest import MonkeyPatch
 
 
-def test_docker_backup_adapter_collect_config_files(tmp_path: Path) -> None:
+def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
     tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
 
@@ -17,16 +17,14 @@ def test_docker_backup_adapter_collect_config_files(tmp_path: Path) -> None:
 
     dba = DockerBackupAdapter()
 
-    files = dba.collect_config_files(tmp_path)
+    files = dba.collect_storage_info(tmp_path)
 
-    assert not (
-        set(files).difference(
-            [
-                tmp_path.joinpath("services", "docker-compose.yaml"),
-                tmp_path.joinpath("services", "data", "docker-compose.yaml"),
-                tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
-            ]
-        )
+    assert not set(files).difference(
+        [
+            tmp_path.joinpath("services", "docker-compose.yaml"),
+            tmp_path.joinpath("services", "data", "docker-compose.yaml"),
+            tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
+        ]
     )
     assert len(files) == len(set(files))
 
@@ -38,12 +36,27 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
 
     assert dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path) == {
         "first_service": {
-            "host_directories": [HostDirectory(tmp_path.joinpath("bind_mount1"), Path("/container1/path"))],
-            "volumes": [Volume("named_volume1", Path("/another/container1/path"))],
+            "container_name": "service1",
+            "ports": ["80:80", "443:443"],
+            "bind_mounts": [
+                HostDirectory(tmp_path.joinpath("service1_bind_mount1"), Path("/service1/bind_mount1/path"))
+            ],
+            "volumes": [
+                Volume("service1_volume1", Path("/service1/volume1/path")),
+                Volume("service1_volume2", Path("/service1/volume2/path")),
+            ],
         },
         "second_service": {
-            "host_directories": [HostDirectory(tmp_path.joinpath("bind_mount2"), Path("/another/container2/path"))],
-            "volumes": [Volume("named_volume2", Path("/container2/path"))],
+            "image": "source/image",
+            "container_name": "service2",
+            "bind_mounts": [
+                HostDirectory(tmp_path.joinpath("service2_bind_mount1"), Path("/service2/bind_mount1/path")),
+                HostDirectory(tmp_path.joinpath("service2_bind_mount2"), Path("/service2/bind_mount2/path")),
+            ],
+            "volumes": [
+                Volume("service2_volume1", Path("/service2/volume1/path")),
+                Volume("service2_volume2", Path("/service2/volume2/path")),
+            ],
         },
     }
 
@@ -59,17 +72,17 @@ def test_docker_backup__parse_compose_file_raises_error_if_no_services_key_in_fi
         dba._parse_compose_file(None, tmp_path)  # type: ignore
 
 
-def test_docker_backup_parse_config_raises_error_when_multiple_files_are_speccified(tmp_path: Path) -> None:
+def test_docker_backup_parse_storage_info_raises_error_when_multiple_files_are_speccified(tmp_path: Path) -> None:
     dba = DockerBackupAdapter()
 
     with pytest.raises(RuntimeError):
-        dba.parse_config([Path("/first/path"), Path("/second/path")], tmp_path)
+        dba.parse_storage_info([Path("/first/path"), Path("/second/path")], tmp_path)
 
 
-def test_docker_backup_parse_config_returns_dictionary(tmp_path: Path, dummy_docker_compose_file: Path) -> None:
+def test_docker_backup_parse_storage_info_returns_dictionary(tmp_path: Path, dummy_docker_compose_file: Path) -> None:
     dba = DockerBackupAdapter()
 
-    result = dba.parse_config([dummy_docker_compose_file], tmp_path)
+    result = dba.parse_storage_info([dummy_docker_compose_file], tmp_path)
 
     assert isinstance(result, dict)
     assert "first_service" in result.keys()

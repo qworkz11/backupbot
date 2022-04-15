@@ -14,4 +14,14 @@ def dummy_docker_compose_file() -> Path:
     Returns:
         Path: Path instance.
     """
-    return Path(__file__).parent.joinpath("utils", "docker-compose.yaml")
+    return Path(__file__).parent.joinpath("resources", "docker-compose.yaml")
+
+
+@pytest.fixture
+def dummy_bind_mount_dir() -> Path:
+    """Returns the path to a dummy folder structure containing dummy text files.
+
+    Returns:
+        Path: _description_
+    """
+    return Path(__file__).parent.joinpath("resources", "sample_bind_mount_dir")

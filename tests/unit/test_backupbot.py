@@ -9,7 +9,7 @@ from backupbot.data_structures import HostDirectory, Volume
 def test_create_target_folder_creates_host_directory_folder_structure(tmp_path: Path) -> None:
     bub = BackupBot(Path("not existing"), tmp_path)
 
-    bub.create_target_folders(
+    bub.create_service_backup_structure(
         {
             "service1": {
                 "host_directories": [
@@ -30,7 +30,7 @@ def test_create_target_folder_creates_host_directory_folder_structure(tmp_path: 
 def test_create_target_folder_creates_volume_folder_structure(tmp_path: Path) -> None:
     bub = BackupBot(Path("not existing"), tmp_path)
 
-    bub.create_target_folders(
+    bub.create_service_backup_structure(
         {
             "service1": {
                 "volumes": [

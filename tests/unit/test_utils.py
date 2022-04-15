@@ -13,7 +13,8 @@ from backupbot.utils import (
     load_yaml_file,
     locate_files,
     match_files,
-    tar_directory,
+    path_to_string,
+    tar_file_or_directory,
 )
 
 
@@ -115,17 +116,28 @@ def test_match_files_raises_error_for_invalid_directory() -> None:
 def test_load_yaml_file_parses_dockerfile_correctly(
     dummy_docker_compose_file: Path,
 ) -> None:
-    assert load_yaml_file(dummy_docker_compose_file) == {
+    parsed = load_yaml_file(dummy_docker_compose_file)
+    assert parsed == {
         "version": "3",
         "services": {
             "first_service": {
                 "container_name": "service1",
                 "ports": ["80:80", "443:443"],
-                "volumes": ["./bind_mount1:/container1/path", "named_volume1:/another/container1/path"],
+                "volumes": [
+                    "./service1_bind_mount1:/service1/bind_mount1/path",
+                    "service1_volume1:/service1/volume1/path",
+                    "service1_volume2:/service1/volume2/path",
+                ],
             },
             "second_service": {
                 "image": "source/image",
-                "volumes": ["named_volume2:/container2/path", "./bind_mount2:/another/container2/path"],
+                "container_name": "service2",
+                "volumes": [
+                    "service2_volume1:/service2/volume1/path",
+                    "service2_volume2:/service2/volume2/path",
+                    "./service2_bind_mount1:/service2/bind_mount1/path",
+                    "./service2_bind_mount2:/service2/bind_mount2/path",
+                ],
             },
         },
         "networks": ["a_random_network"],
@@ -150,40 +162,55 @@ def test_absolute_paths_composes_paths_correctly() -> None:
     ]
 
 
-def test_tar_directory_tar_compresses_directory(tmp_path: Path) -> None:
+def test_tar_file_or_directory_tar_compresses_directory(tmp_path: Path) -> None:
     tmp_path.joinpath("data").mkdir()
     tmp_path.joinpath("data", "file1").touch()
     tmp_path.joinpath("data", "file2").touch()
 
-    tar = tar_directory(tmp_path.joinpath("data"), "data_tar", tmp_path)
+    tar = tar_file_or_directory(tmp_path.joinpath("data"), "data_tar", tmp_path)
 
     assert tar.is_file()
 
 
-def test_tar_directory_raises_error_for_invalid_paths(tmp_path: Path) -> None:
+def test_tar_file_or_directory_raises_error_for_invalid_paths(tmp_path: Path) -> None:
     tmp_path.joinpath("data").mkdir()
 
     with pytest.raises(NotADirectoryError):
-        tar_directory(tmp_path.joinpath("not_exitsing"), "some_name", tmp_path.joinpath("data"))
+        tar_file_or_directory(tmp_path.joinpath("not_exitsing"), "some_name", tmp_path.joinpath("data"))
 
     with pytest.raises(NotADirectoryError):
-        tar_directory(tmp_path.joinpath("data"), "some_name", tmp_path.joinpath("not_exitsing"))
+        tar_file_or_directory(tmp_path.joinpath("data"), "some_name", tmp_path.joinpath("not_exitsing"))
 
 
-def test_tar_directory_raises_error_if_subprocess_returns_error_exit_code(
+def test_tar_file_or_directory_raises_error_if_subprocess_returns_error_exit_code(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     monkeypatch.setattr(backupbot.utils.subprocess, "run", lambda *_, **__: subprocess.CompletedProcess((), 1))
     tmp_path.joinpath("data").mkdir()
 
     with pytest.raises(RuntimeError):
-        tar_directory(tmp_path.joinpath("data"), "name", tmp_path)
+        tar_file_or_directory(tmp_path.joinpath("data"), "name", tmp_path)
 
 
-def test_tar_directory_raises_error_if_tar_file_does_not_exist_after_tar_command(
+def test_tar_file_or_directory_raises_error_if_tar_file_does_not_exist_after_tar_command(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     monkeypatch.setattr(backupbot.utils.subprocess, "run", lambda *_, **__: subprocess.CompletedProcess((), 0))
 
     with pytest.raises(RuntimeError):
-        tar_directory(tmp_path, "irrelevant_name", tmp_path)
+        tar_file_or_directory(tmp_path, "irrelevant_name", tmp_path)
+
+
+def test_tar_file_or_directory_for_file(tmp_path: Path) -> None:
+    file = tmp_path.joinpath("file.txt")
+    file.touch()
+
+    tar_file_or_directory(file, "file.txt", tmp_path)
+    assert tmp_path.joinpath("file.txt.tar.gz").is_file()
+
+
+def test_path_to_string() -> None:
+    assert path_to_string(Path("/path/with/name/foo"), num_steps=1) == "foo"
+    assert path_to_string(Path("path/with/name/foo"), num_steps=-1) == "path-with-name-foo"
+    assert path_to_string(Path("/path/with/name/foo"), num_steps=3) == "with-name-foo"
+    assert path_to_string(Path("path/with/name/foo"), num_steps=2, delim="#") == "name#foo"
