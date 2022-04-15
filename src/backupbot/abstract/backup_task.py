@@ -13,6 +13,14 @@ class AbstractBackupTask(ABC):
     def __call__(self, storage_info: Dict[str, Dict[str, List]]) -> None:
         ...
 
+    @abstractmethod
+    def __eq__(self, o: object) -> bool:
+        ...
+
+    @abstractmethod
+    def __repr__(self) -> str:
+        ...
+
 
 # class AbstractHostDirectoryBackupTask(AbstractBackupTask, ABC):
 #     target_dir_name = "host_directories"

@@ -3,6 +3,11 @@ from pathlib import Path
 import backupbot.docker.docker_backup
 import pytest
 from backupbot.data_structures import HostDirectory, Volume
+from backupbot.docker.backup_tasks import (
+    DockerBindMountBackupTask,
+    DockerMySQLBackupTask,
+    DockerVolumeBackupTask,
+)
 from backupbot.docker.docker_backup import DockerBackupAdapter
 from pytest import MonkeyPatch
 
@@ -58,6 +63,19 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
                 Volume("service2_volume2", Path("/service2/volume2/path")),
             ],
         },
+    }
+
+
+def test_docker_backup_adapter_parse_backup_scheme(dummy_backup_scheme_file: Path) -> None:
+    dba = DockerBackupAdapter()
+
+    assert dba.parse_backup_scheme(dummy_backup_scheme_file) == {
+        "service1": [
+            DockerBindMountBackupTask(["all"]),
+            DockerVolumeBackupTask(["service1_volume1", "service1_volume2"]),
+            DockerMySQLBackupTask(database="test_database", user="test_user", password="test_password"),
+        ],
+        "service2": [DockerVolumeBackupTask(["service2_volume2"]), DockerBindMountBackupTask(["service2_mount3"])],
     }
 
 

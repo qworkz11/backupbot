@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -6,6 +7,11 @@ from typing import Any, Dict, List, Tuple, Union
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
+from backupbot.docker.backup_tasks import (
+    DockerBindMountBackupTask,
+    DockerMySQLBackupTask,
+    DockerVolumeBackupTask,
+)
 from backupbot.utils import load_yaml_file, locate_files, tar_file_or_directory
 
 
@@ -27,7 +33,34 @@ class DockerBackupAdapter(ContainerBackupAdapter):
         return self._parse_compose_file(files[0], root_directory)
 
     def parse_backup_scheme(self, file: Path) -> Dict[str, List[AbstractBackupTask]]:
-        pass
+        if not file.is_file() or not file.suffix.lower() == ".json":
+            raise RuntimeError(f"Backup configuration file has wrong suffix or does not exist: '{file}'.")
+
+        with open(file.absolute(), "r") as f:
+            parsed: Dict[str, List] = json.load(f)
+
+        backup_scheme = {}
+
+        for service_name in parsed.keys():
+            backup_scheme[service_name] = []
+            for scheme_definition in parsed[service_name]:
+                try:
+                    if scheme_definition["type"] == "bind_mount_backup":
+                        backup_task = DockerBindMountBackupTask(**scheme_definition["config"])
+                    elif scheme_definition["type"] == "volume_backup":
+                        backup_task = DockerVolumeBackupTask(**scheme_definition["config"])
+                    elif scheme_definition["type"] == "mysql_backup":
+                        backup_task = DockerMySQLBackupTask(**scheme_definition["config"])
+                    else:
+                        # TODO log error
+                        pass
+                except NotImplementedError as error:
+                    # TODO log error
+                    continue
+
+                backup_scheme[service_name].append(backup_task)
+
+        return backup_scheme
 
     def _parse_volume(self, volume: str) -> Tuple[str, str]:
         if not ":" in volume:
