@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List
 
 from backupbot.abstract.backup_task import AbstractBackupTask
+from backupbot.abstract.storage_info import AbstractStorageInfo
+from pydantic import BaseModel
 
 
 class ContainerBackupAdapter(ABC):
@@ -17,7 +19,7 @@ class ContainerBackupAdapter(ABC):
         ...
 
     @abstractmethod
-    def parse_backup_scheme(self, file: Path) -> Dict[str, List[AbstractBackupTask]]:
+    def parse_backup_scheme(self, file: Path) -> List[AbstractStorageInfo]:
         ...
 
     # @abstractmethod

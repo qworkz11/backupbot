@@ -38,7 +38,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
                     if any([host_dir.path.match(bind_mount) for bind_mount in self.bind_mounts])
                 ]
             for mount in backup_mounts:
-                target = backup_task_dir.joinpath(mount.path.name)
+                target = backup_task_dir.joinpath(path_to_string(mount.path, num_steps=3))
                 if not target.is_dir():
                     target.mkdir(parents=False)
 

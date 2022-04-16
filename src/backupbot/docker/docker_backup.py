@@ -12,6 +12,7 @@ from backupbot.docker.backup_tasks import (
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
+from backupbot.docker.storage_info import DockerComposeService
 from backupbot.utils import load_yaml_file, locate_files
 
 
@@ -25,7 +26,7 @@ class DockerBackupAdapter(ContainerBackupAdapter):
 
         return compose_files
 
-    def parse_storage_info(self, files: List[Path], root_directory: Path) -> Dict[str, Dict[str, List]]:
+    def parse_storage_info(self, files: List[Path], root_directory: Path) -> List[DockerComposeService]:
         num_files = len(files)
         if num_files != 1:
             raise RuntimeError(f"Only one docker-compose file allowed: Got '{num_files}'.")
@@ -39,7 +40,7 @@ class DockerBackupAdapter(ContainerBackupAdapter):
         with open(file.absolute(), "r") as f:
             parsed: Dict[str, List] = json.load(f)
 
-        backup_scheme = {}
+        backup_scheme: Dict[str, List[AbstractBackupTask]] = {}
 
         for service_name in parsed.keys():
             backup_scheme[service_name] = []
@@ -52,10 +53,11 @@ class DockerBackupAdapter(ContainerBackupAdapter):
                     elif scheme_definition["type"] == "mysql_backup":
                         backup_task = DockerMySQLBackupTask(**scheme_definition["config"])
                     else:
+                        print(f"[Warning]: Unknown backup scheme type: '{scheme_definition['type']}'")
                         # TODO log error
-                        pass
                 except NotImplementedError as error:
                     # TODO log error
+                    print(f"Failed to parse backup task of type '{scheme_definition['type']}': {error}.")
                     continue
 
                 backup_scheme[service_name].append(backup_task)
@@ -68,34 +70,37 @@ class DockerBackupAdapter(ContainerBackupAdapter):
         split = volume.split(":")
         return split[0], split[1]
 
-    def _parse_compose_file(self, file: Path, root_directory: Path) -> Dict[str, Dict[str, List]]:
-        compose_content = load_yaml_file(file)
+    def _parse_compose_file(self, file: Path, root_directory: Path) -> List[DockerComposeService]:
+        compose_content: Dict[str, Dict] = load_yaml_file(file)
 
         if not "services" in compose_content.keys():
             raise RuntimeError("Failed to parse docker-compose.yaml: File has no 'services' key.")
 
-        parsed: Dict[str, Dict[str, Union[List[Volume], List[HostDirectory]]]] = {}
-        parsed = deepcopy(compose_content["services"])
+        services: List[DockerComposeService] = []
 
         for service_name, service_attributes in compose_content["services"].items():
+            service = DockerComposeService(
+                name=service_name,
+                container_name=service_attributes["container_name"],
+                image=service_attributes["image"],
+                hostname=service_attributes["hostname"],
+                volumes=[],
+                bind_mounts=[],
+            )
             if "volumes" in service_attributes:
-                bind_mounts = []
-                named_volumes = []
-
                 for volume in service_attributes["volumes"]:
                     if volume.startswith("."):
                         host_directory, container_mount_point = self._parse_volume(volume)
                         host_directory_path = root_directory.joinpath(host_directory)
 
-                        bind_mounts.append(HostDirectory(host_directory_path, Path(container_mount_point)))
+                        service.bind_mounts.append(HostDirectory(host_directory_path, Path(container_mount_point)))
                     else:
                         volume_name, container_mount_point = self._parse_volume(volume)
-                        named_volumes.append(Volume(volume_name, Path(container_mount_point)))
+                        service.volumes.append(Volume(volume_name, Path(container_mount_point)))
 
-                parsed[service_name]["bind_mounts"] = bind_mounts
-                parsed[service_name]["volumes"] = named_volumes
+            services.append(service)
 
-        return parsed
+        return services
 
     def _make_backup_name(self, directory: Path, container_name: str) -> str:
         return f"{container_name}-{str(directory).split('/')[::-1][0]}"

@@ -122,6 +122,8 @@ def test_load_yaml_file_parses_dockerfile_correctly(
         "services": {
             "first_service": {
                 "container_name": "service1",
+                "image": "image1",
+                "hostname": "hostname1",
                 "ports": ["80:80", "443:443"],
                 "volumes": [
                     "./service1_bind_mount1:/service1/bind_mount1/path",
@@ -132,6 +134,7 @@ def test_load_yaml_file_parses_dockerfile_correctly(
             "second_service": {
                 "image": "source/image",
                 "container_name": "service2",
+                "hostname": "hostname2",
                 "volumes": [
                     "service2_volume1:/service2/volume1/path",
                     "service2_volume2:/service2/volume2/path",

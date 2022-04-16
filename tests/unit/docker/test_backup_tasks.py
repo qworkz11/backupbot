@@ -41,14 +41,17 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(tmp_path: Path, 
 
     backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
 
-    assert bind_mount_path.joinpath("bind_mount1").is_dir()
-    assert bind_mount_path.joinpath("bind_mount2").is_dir()
+    tar_file1_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=3))
+    tar_file2_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3))
+
+    assert tar_file1_dir.is_dir()
+    assert tar_file2_dir.is_dir()
 
     tar_file1 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=3) + ".tar.gz"
     tar_file2 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3) + ".tar.gz"
 
-    assert bind_mount_path.joinpath("bind_mount1", tar_file1).is_file()
-    assert bind_mount_path.joinpath("bind_mount2", tar_file2).is_file()
+    assert tar_file1_dir.joinpath(tar_file1).is_file()
+    assert tar_file2_dir.joinpath(tar_file2).is_file()
 
 
 def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
@@ -69,12 +72,14 @@ def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
     backup_task = DockerBindMountBackupTask(bind_mounts=["bind_mount2"])
     backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
 
-    assert not bind_mount_path.joinpath("bind_mount1").exists()
-    assert bind_mount_path.joinpath("bind_mount2").is_dir()
+    tar_file_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3))
+
+    assert tar_file_dir.is_dir()
+    assert len(list(bind_mount_path.iterdir())) == 1
 
     tar_file = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3) + ".tar.gz"
 
-    assert bind_mount_path.joinpath("bind_mount2", tar_file).is_file()
+    assert tar_file_dir.joinpath(tar_file).is_file()
 
 
 def test_docker_bind_mount_backup_task_equality() -> None:

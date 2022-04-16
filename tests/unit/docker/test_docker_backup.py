@@ -9,6 +9,7 @@ from backupbot.docker.backup_tasks import (
     DockerVolumeBackupTask,
 )
 from backupbot.docker.docker_backup import DockerBackupAdapter
+from backupbot.docker.storage_info import DockerComposeService
 from pytest import MonkeyPatch
 
 
@@ -39,31 +40,37 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
 ) -> None:
     dba = DockerBackupAdapter()
 
-    assert dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path) == {
-        "first_service": {
-            "container_name": "service1",
-            "ports": ["80:80", "443:443"],
-            "bind_mounts": [
-                HostDirectory(tmp_path.joinpath("service1_bind_mount1"), Path("/service1/bind_mount1/path"))
-            ],
-            "volumes": [
+    # plit these up to enable better debugging...
+    parsed = dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path)
+    compare = [
+        DockerComposeService(
+            name="first_service",
+            container_name="service1",
+            image="image1",
+            hostname="hostname1",
+            bind_mounts=[HostDirectory(tmp_path.joinpath("service1_bind_mount1"), Path("/service1/bind_mount1/path"))],
+            volumes=[
                 Volume("service1_volume1", Path("/service1/volume1/path")),
                 Volume("service1_volume2", Path("/service1/volume2/path")),
             ],
-        },
-        "second_service": {
-            "image": "source/image",
-            "container_name": "service2",
-            "bind_mounts": [
+        ),
+        DockerComposeService(
+            name="second_service",
+            container_name="service2",
+            image="source/image",
+            hostname="hostname2",
+            bind_mounts=[
                 HostDirectory(tmp_path.joinpath("service2_bind_mount1"), Path("/service2/bind_mount1/path")),
                 HostDirectory(tmp_path.joinpath("service2_bind_mount2"), Path("/service2/bind_mount2/path")),
             ],
-            "volumes": [
+            volumes=[
                 Volume("service2_volume1", Path("/service2/volume1/path")),
                 Volume("service2_volume2", Path("/service2/volume2/path")),
             ],
-        },
-    }
+        ),
+    ]
+
+    assert parsed == compare
 
 
 def test_docker_backup_adapter_parse_backup_scheme(dummy_backup_scheme_file: Path) -> None:
@@ -90,6 +97,16 @@ def test_docker_backup__parse_compose_file_raises_error_if_no_services_key_in_fi
         dba._parse_compose_file(None, tmp_path)  # type: ignore
 
 
+def test_docker_backup_parse_backup_scheme_raises_error_for_wrong_file_type(tmp_path: Path) -> None:
+    dba = DockerBackupAdapter()
+
+    file = tmp_path.joinpath("no_json.txt")
+    file.touch()
+
+    with pytest.raises(RuntimeError):
+        dba.parse_backup_scheme(file)
+
+
 def test_docker_backup_parse_storage_info_raises_error_when_multiple_files_are_speccified(tmp_path: Path) -> None:
     dba = DockerBackupAdapter()
 
@@ -97,14 +114,17 @@ def test_docker_backup_parse_storage_info_raises_error_when_multiple_files_are_s
         dba.parse_storage_info([Path("/first/path"), Path("/second/path")], tmp_path)
 
 
-def test_docker_backup_parse_storage_info_returns_dictionary(tmp_path: Path, dummy_docker_compose_file: Path) -> None:
+def test_docker_backup_parse_storage_info_returns_list_of_docker_compose_services(
+    tmp_path: Path, dummy_docker_compose_file: Path
+) -> None:
     dba = DockerBackupAdapter()
 
     result = dba.parse_storage_info([dummy_docker_compose_file], tmp_path)
 
-    assert isinstance(result, dict)
-    assert "first_service" in result.keys()
-    assert "second_service" in result.keys()
+    assert isinstance(result, list)
+    service_names = [service.name for service in result]
+    assert "first_service" in service_names
+    assert "second_service" in service_names
 
 
 def test_docker_backup__parse_volume_returns_correctly_parsed_volume_names_and_mount_points() -> None:
