@@ -81,7 +81,7 @@ class BackupBot:
 
         for service_name, tasks in backup_tasks.items():
             for task in tasks:
-                task(storage_info, self.root.joinpath(service_name))
+                task(storage_info, self.root.joinpath(service_name, type(task).target_dir_name))
 
     # def update_file_versions(self) -> None:
 

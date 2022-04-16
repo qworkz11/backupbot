@@ -34,19 +34,21 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(tmp_path: Path, 
         }
     }
 
+    bind_mount_path = tmp_path.joinpath("service1", "bind_mounts")
+    bind_mount_path.mkdir(parents=True)
+
     backup_task = DockerBindMountBackupTask(bind_mounts=["all"])
-    backup_task(storage_info=storage_info, root=tmp_path)
 
-    service_subdir = tmp_path.joinpath("service1")
+    backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
 
-    assert service_subdir.joinpath("bind_mount1").is_dir()
-    assert service_subdir.joinpath("bind_mount2").is_dir()
+    assert bind_mount_path.joinpath("bind_mount1").is_dir()
+    assert bind_mount_path.joinpath("bind_mount2").is_dir()
 
     tar_file1 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=3) + ".tar.gz"
     tar_file2 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3) + ".tar.gz"
 
-    assert service_subdir.joinpath("bind_mount1", tar_file1).is_file()
-    assert service_subdir.joinpath("bind_mount2", tar_file2).is_file()
+    assert bind_mount_path.joinpath("bind_mount1", tar_file1).is_file()
+    assert bind_mount_path.joinpath("bind_mount2", tar_file2).is_file()
 
 
 def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
@@ -61,17 +63,18 @@ def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
         }
     }
 
+    bind_mount_path = tmp_path.joinpath("service1", "bind_mounts")
+    bind_mount_path.mkdir(parents=True)
+
     backup_task = DockerBindMountBackupTask(bind_mounts=["bind_mount2"])
-    backup_task(storage_info=storage_info, root=tmp_path)
+    backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
 
-    service_subdir = tmp_path.joinpath("service1")
-
-    assert not service_subdir.joinpath("bind_mount1").exists()
-    assert service_subdir.joinpath("bind_mount2").is_dir()
+    assert not bind_mount_path.joinpath("bind_mount1").exists()
+    assert bind_mount_path.joinpath("bind_mount2").is_dir()
 
     tar_file = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3) + ".tar.gz"
 
-    assert service_subdir.joinpath("bind_mount2", tar_file).is_file()
+    assert bind_mount_path.joinpath("bind_mount2", tar_file).is_file()
 
 
 def test_docker_bind_mount_backup_task_equality() -> None:

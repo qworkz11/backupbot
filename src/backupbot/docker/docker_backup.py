@@ -12,7 +12,7 @@ from backupbot.docker.backup_tasks import (
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
-from backupbot.utils import load_yaml_file, locate_files, tar_file_or_directory
+from backupbot.utils import load_yaml_file, locate_files
 
 
 class DockerBackupAdapter(ContainerBackupAdapter):

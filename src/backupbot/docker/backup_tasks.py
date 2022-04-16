@@ -15,11 +15,20 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         if kwargs:
             raise NotImplementedError(f"Received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: Dict, root: Path) -> None:
+    def __call__(self, storage_info: Dict, backup_task_dir: Path) -> None:
+        """Executes the bind mount backup task for docker-compose environments.
+
+        Note: expects the following folder structure:
+            backup_root
+                |-service_root
+                |   |-bind_mounts
+
+        Args:
+            storage_info (Dict): _description_
+            backup_task_dir (Path): _description_
+        """
         # TODO container needs to be stopped
         for service_name in storage_info:
-            service_root_dir = root.joinpath(service_name)
-
             if self.bind_mounts == ["all"]:
                 backup_mounts: List[HostDirectory] = storage_info[service_name]["bind_mounts"]
             else:
@@ -29,9 +38,10 @@ class DockerBindMountBackupTask(AbstractBackupTask):
                     if any([host_dir.path.match(bind_mount) for bind_mount in self.bind_mounts])
                 ]
             for mount in backup_mounts:
-                target = service_root_dir.joinpath(mount.path.name)
+                target = backup_task_dir.joinpath(mount.path.name)
                 if not target.is_dir():
-                    target.mkdir(parents=True)
+                    target.mkdir(parents=False)
+
                 tar_file_or_directory(mount.path, path_to_string(mount.path, num_steps=3), target)
 
     def __eq__(self, o: object) -> bool:
