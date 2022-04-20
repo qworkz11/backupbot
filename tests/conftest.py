@@ -5,8 +5,14 @@
 from contextlib import contextmanager
 from email.generator import Generator
 from pathlib import Path
+from typing import Callable
 
 import pytest
+from backupbot.docker.container_utils import (
+    docker_compose_down,
+    docker_compose_start,
+    docker_compose_up,
+)
 from docker import DockerClient, from_env
 from docker.errors import NotFound
 
@@ -54,7 +60,37 @@ def docker_client() -> DockerClient:
 
 @pytest.fixture
 def sample_docker_compose_project_dir() -> Path:
+    """Returns the path to the dummy (but working) docker-compose project.
+
+    Returns:
+        Path: Path instance.
+    """
     return Path(__file__).parent.joinpath("resources", "sample_docker_compose_service")
+
+
+@pytest.fixture
+def running_docker_compose_project() -> Callable:
+    """Returns a callable which can be used to start a docker-compose project.
+
+    Returns:
+        Callable: Callable function.
+    """
+
+    @contextmanager
+    def func(compose_file: Path) -> Generator:
+        """Provides a the specified docker compose context and shuts it down if necessary after the test.
+
+        Args:
+            compose_file (Path): Path to the docker-compose file.
+
+        Yields:
+            Generator: Yields None.
+        """
+        docker_compose_up(compose_file)
+        yield None
+        docker_compose_down(compose_file)
+
+    return func
 
 
 @pytest.fixture(scope="function")

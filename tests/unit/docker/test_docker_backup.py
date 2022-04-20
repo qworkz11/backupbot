@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable, List
 
 import backupbot.docker.docker_backup
 import pytest
@@ -12,6 +13,8 @@ from backupbot.docker.docker_backup import DockerBackupAdapter
 from backupbot.docker.storage_info import DockerComposeService
 from pytest import MonkeyPatch
 
+from docker import DockerClient
+
 
 def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
@@ -23,7 +26,7 @@ def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
 
     dba = DockerBackupAdapter()
 
-    files = dba.collect_storage_info(tmp_path)
+    files = dba.discover_config_files(tmp_path)
 
     assert not set(files).difference(
         [
@@ -146,3 +149,23 @@ def test_docker_backup__make_backup_name_creates_correct_name() -> None:
 
     assert dba._make_backup_name(Path("/path/to/data"), "data_container") == "data_container-data"
     assert dba._make_backup_name(Path("directory"), "data_container") == "data_container-directory"
+
+
+def test_docker_backup_stopped_system_stops_docker_compose_system(
+    docker_client: DockerClient, running_docker_compose_project: Callable, sample_docker_compose_project_dir: Path
+) -> None:
+    compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
+    with running_docker_compose_project(compose_file) as _:
+        dba = DockerBackupAdapter()
+        dba.config_files = [compose_file]
+
+        with dba.stopped_system(None) as __:
+            containers = [container.name for container in docker_client.containers.list(filters={"status": "exited"})]
+            assert "bind_mount_service" in containers
+            assert "volume_service" in containers
+            assert "mysql_service" in containers
+
+        containers = [container.name for container in docker_client.containers.list(filters={"status": "running"})]
+        assert "bind_mount_service" in containers
+        assert "volume_service" in containers
+        assert "mysql_service" in containers

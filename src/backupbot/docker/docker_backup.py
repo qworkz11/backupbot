@@ -1,8 +1,9 @@
 import json
+from contextlib import contextmanager
 from copy import deepcopy
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, Generator, List, Tuple, Union
 
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
@@ -12,19 +13,25 @@ from backupbot.docker.backup_tasks import (
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
+from backupbot.docker.container_utils import docker_compose_start, docker_compose_stop
 from backupbot.docker.storage_info import DockerComposeService
 from backupbot.utils import load_yaml_file, locate_files
+
+from docker import DockerClient, from_env
 
 
 class DockerBackupAdapter(ContainerBackupAdapter):
     def __init__(self):
-        pass
+        self.docker_client: DockerClient = from_env()
+        self.config_files: List[Path] = []
 
-    def collect_storage_info(self, root: Path) -> List[Path]:
-        compose_files: List[Path] = []
-        locate_files(root, "docker-compose.yaml", compose_files)
+    def discover_config_files(self, root: Path) -> List[Path]:
+        locate_files(root, "docker-compose.yaml", self.config_files)
 
-        return compose_files
+        if len(self.config_files) != 1:
+            raise RuntimeError("There must only be one docker-compose file, foung: '{}'.")
+
+        return self.config_files
 
     def parse_storage_info(self, files: List[Path], root_directory: Path) -> List[DockerComposeService]:
         num_files = len(files)
@@ -63,6 +70,12 @@ class DockerBackupAdapter(ContainerBackupAdapter):
                 backup_scheme[service_name].append(backup_task)
 
         return backup_scheme
+
+    @contextmanager
+    def stopped_system(self, storage_info: List[DockerComposeService] = None) -> Generator:
+        docker_compose_stop(self.config_files[0])
+        yield None
+        docker_compose_start(self.config_files[0])
 
     def _parse_volume(self, volume: str) -> Tuple[str, str]:
         if not ":" in volume:

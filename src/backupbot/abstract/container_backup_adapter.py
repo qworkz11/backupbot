@@ -1,8 +1,9 @@
 """This module defines an abstract adapter for container backup classes."""
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, Generator, List, Optional
 
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
@@ -11,15 +12,20 @@ from pydantic import BaseModel
 
 class ContainerBackupAdapter(ABC):
     @abstractmethod
-    def collect_storage_info(self, root: Path) -> List[Path]:
+    def discover_config_files(self, root: Path) -> List[Path]:
         ...
 
     @abstractmethod
-    def parse_storage_info(self, files: List[Path], root_directory: Path) -> Dict[str, Dict[str, List]]:
+    def parse_storage_info(self, files: List[Path], root_directory: Path) -> List[AbstractStorageInfo]:
         ...
 
     @abstractmethod
-    def parse_backup_scheme(self, file: Path) -> List[AbstractStorageInfo]:
+    def parse_backup_scheme(self, file: Path) -> Dict[str, List[AbstractBackupTask]]:
+        ...
+
+    @abstractmethod
+    @contextmanager
+    def stopped_system(self, storage_info: Optional[List[AbstractStorageInfo]] = None) -> Generator:
         ...
 
     # @abstractmethod

@@ -27,7 +27,6 @@ class DockerBindMountBackupTask(AbstractBackupTask):
             storage_info (Dict): _description_
             backup_task_dir (Path): _description_
         """
-        # TODO container needs to be stopped
         for service_name in storage_info:
             if self.bind_mounts == ["all"]:
                 backup_mounts: List[HostDirectory] = storage_info[service_name]["bind_mounts"]
