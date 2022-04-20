@@ -20,8 +20,6 @@ def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
     tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
 
-    tmp_path.joinpath("services", "docker-compose.yaml").touch()
-    tmp_path.joinpath("services", "data", "docker-compose.yaml").touch()
     tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
 
     dba = DockerBackupAdapter()
@@ -30,12 +28,26 @@ def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
 
     assert not set(files).difference(
         [
-            tmp_path.joinpath("services", "docker-compose.yaml"),
-            tmp_path.joinpath("services", "data", "docker-compose.yaml"),
             tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
         ]
     )
     assert len(files) == len(set(files))
+
+
+def test_docker_backup_adapter_raises_error_when_more_or_less_than_one_config_file_found(tmp_path: Path) -> None:
+    tmp_path.joinpath("zero_files", "data").mkdir(parents=True)
+    tmp_path.joinpath("two_files", "data", "more_data").mkdir(parents=True)
+
+    tmp_path.joinpath("two_files", "data", "docker-compose.yaml").touch()
+    tmp_path.joinpath("two_files", "data", "more_data", "docker-compose.yaml").touch()
+
+    dba = DockerBackupAdapter()
+
+    with pytest.raises(RuntimeError):
+        dba.discover_config_files(tmp_path.joinpath("zero_files"))
+
+    with pytest.raises(RuntimeError):
+        dba.discover_config_files(tmp_path.joinpath("two_files"))
 
 
 def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_correctly(

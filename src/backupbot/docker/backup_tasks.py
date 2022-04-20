@@ -2,7 +2,9 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 from backupbot.abstract.backup_task import AbstractBackupTask
+from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.data_structures import HostDirectory
+from backupbot.docker.storage_info import DockerComposeService
 from backupbot.utils import path_to_string, tar_file_or_directory
 
 
@@ -15,7 +17,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         if kwargs:
             raise NotImplementedError(f"Received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: Dict, backup_task_dir: Path) -> None:
+    def __call__(self, storage_info: List[DockerComposeService], backup_task_dir: Path) -> None:
         """Executes the bind mount backup task for docker-compose environments.
 
         Note: expects the following folder structure:
@@ -27,13 +29,13 @@ class DockerBindMountBackupTask(AbstractBackupTask):
             storage_info (Dict): _description_
             backup_task_dir (Path): _description_
         """
-        for service_name in storage_info:
+        for service in storage_info:
             if self.bind_mounts == ["all"]:
-                backup_mounts: List[HostDirectory] = storage_info[service_name]["bind_mounts"]
+                backup_mounts: List[HostDirectory] = service.bind_mounts
             else:
                 backup_mounts: List[HostDirectory] = [
                     host_dir
-                    for host_dir in storage_info[service_name]["bind_mounts"]
+                    for host_dir in service.bind_mounts
                     if any([host_dir.path.match(bind_mount) for bind_mount in self.bind_mounts])
                 ]
             for mount in backup_mounts:

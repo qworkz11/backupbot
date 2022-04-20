@@ -8,11 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from backupbot.docker.container_utils import (
-    docker_compose_down,
-    docker_compose_start,
-    docker_compose_up,
-)
+from backupbot.docker.container_utils import docker_compose_down, docker_compose_up
 from docker import DockerClient, from_env
 from docker.errors import NotFound
 
@@ -87,8 +83,10 @@ def running_docker_compose_project() -> Callable:
             Generator: Yields None.
         """
         docker_compose_up(compose_file)
-        yield None
-        docker_compose_down(compose_file)
+        try:
+            yield None
+        finally:
+            docker_compose_down(compose_file)
 
     return func
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 
 import pytest
 from backupbot.data_structures import HostDirectory
@@ -7,6 +8,7 @@ from backupbot.docker.backup_tasks import (
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
+from backupbot.docker.storage_info import DockerComposeService
 from backupbot.utils import path_to_string
 
 
@@ -25,14 +27,19 @@ def test_docker_bind_mount_backup_task_raises_error_when_unknown_attributes_are_
 
 
 def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(tmp_path: Path, dummy_bind_mount_dir: Path) -> None:
-    storage_info = {
-        "service1": {
-            "bind_mounts": [
+    storage_info: List[DockerComposeService] = [
+        DockerComposeService(
+            name="service1",
+            container_name="service1",
+            image="some_image",
+            hostname="service1",
+            bind_mounts=[
                 HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
                 HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
-            ]
-        }
-    }
+            ],
+            volumes=[],
+        )
+    ]
 
     bind_mount_path = tmp_path.joinpath("service1", "bind_mounts")
     bind_mount_path.mkdir(parents=True)
@@ -57,14 +64,19 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(tmp_path: Path, 
 def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
     tmp_path: Path, dummy_bind_mount_dir: Path
 ) -> None:
-    storage_info = {
-        "service1": {
-            "bind_mounts": [
+    storage_info: List[DockerComposeService] = [
+        DockerComposeService(
+            name="service1",
+            container_name="service1",
+            image="some_image",
+            hostname="service1",
+            bind_mounts=[
                 HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
                 HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
-            ]
-        }
-    }
+            ],
+            volumes=[],
+        )
+    ]
 
     bind_mount_path = tmp_path.joinpath("service1", "bind_mounts")
     bind_mount_path.mkdir(parents=True)

@@ -28,8 +28,9 @@ class DockerBackupAdapter(ContainerBackupAdapter):
     def discover_config_files(self, root: Path) -> List[Path]:
         locate_files(root, "docker-compose.yaml", self.config_files)
 
-        if len(self.config_files) != 1:
-            raise RuntimeError("There must only be one docker-compose file, foung: '{}'.")
+        num_files = len(self.config_files)
+        if num_files != 1:
+            raise RuntimeError(f"There must only be one docker-compose file, found: '{num_files}'.")
 
         return self.config_files
 
