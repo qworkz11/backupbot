@@ -9,25 +9,37 @@ from backupbot.utils import path_to_string, tar_file_or_directory
 
 
 class DockerBindMountBackupTask(AbstractBackupTask):
+    """Class which defines a DockerBackupTask."""
+
     target_dir_name: str = "bind_mounts"
 
     def __init__(self, bind_mounts: List[str], **kwargs: Dict):
+        """Constuctor.
+
+        Args:
+            bind_mounts (List[str]): List of docker-compose bind mount instances.
+
+        Raises:
+            NotImplementedError: When the class has no shared target_dir_name attribute.
+        """
         self.bind_mounts = bind_mounts
 
         if kwargs:
             raise NotImplementedError(f"Received unknown parameters: {kwargs}")
 
     def __call__(self, storage_info: List[DockerComposeService], backup_task_dir: Path) -> None:
-        """Executes the bind mount backup task for docker-compose environments.
+        """Executes the bind mount backup task for docker-compose environments. Creates a sub-folder for each bind mount
+        named after the bind mount (if necessary). The bind mount content is tar-compressed a single file.
 
-        Note: expects the following folder structure:
-            backup_root
-                |-service_root
+        Folder structure after the backup:
+
+                |-backup_task_dir
                 |   |-bind_mounts
+                |   |      |-bind_mount_name.tar.gz
 
         Args:
-            storage_info (Dict): _description_
-            backup_task_dir (Path): _description_
+            storage_info (List[DockerComposeService]): Docker-compose storage info.
+            backup_task_dir (Path): Destination directory.
         """
         for service in storage_info:
             if self.bind_mounts == ["all"]:
@@ -46,6 +58,14 @@ class DockerBindMountBackupTask(AbstractBackupTask):
                 tar_file_or_directory(mount.path, path_to_string(mount.path, num_steps=3), target)
 
     def __eq__(self, o: object) -> bool:
+        """Equality function.
+
+        Args:
+            o (object): Other object.
+
+        Returns:
+            bool: True if objects are equal.
+        """
         if not isinstance(o, type(self)):
             return False
 
@@ -55,6 +75,11 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         return len(set(self.bind_mounts).difference(o.bind_mounts)) == 0
 
     def __repr__(self) -> str:
+        """Representation function.
+
+        Returns:
+            str: String representation.
+        """
         return self.__class__.__name__ + f": {self.bind_mounts}"
 
 

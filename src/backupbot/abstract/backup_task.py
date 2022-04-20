@@ -23,6 +23,9 @@ class AbstractBackupTask(ABC):
     def __repr__(self) -> str:
         ...
 
+    def get_dest_dir_name(self) -> str:
+        return type(self).target_dir_name
+
 
 # class AbstractHostDirectoryBackupTask(AbstractBackupTask, ABC):
 #     target_dir_name = "host_directories"

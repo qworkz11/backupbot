@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List
 
 import pytest
+from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.data_structures import HostDirectory
 from backupbot.docker.backup_tasks import (
     DockerBindMountBackupTask,
@@ -10,6 +11,13 @@ from backupbot.docker.backup_tasks import (
 )
 from backupbot.docker.storage_info import DockerComposeService
 from backupbot.utils import path_to_string
+from tests.utils.dummies import create_dummy_task
+
+
+def test_docker_bind_mount_backup_has_accessible_target_dir_name() -> None:
+    backup_task: AbstractBackupTask = create_dummy_task("dir_name")
+
+    assert backup_task.get_dest_dir_name() == "dir_name"
 
 
 def test_docker_bind_mount_backup_task_can_be_created_from_dict() -> None:
