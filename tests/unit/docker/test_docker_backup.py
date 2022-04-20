@@ -16,7 +16,7 @@ from pytest import MonkeyPatch
 from docker import DockerClient
 
 
-def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
+def test_docker_backup_adapter_discover_config_files(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
     tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
 
@@ -34,7 +34,9 @@ def test_docker_backup_adapter_collect_storage_info(tmp_path: Path) -> None:
     assert len(files) == len(set(files))
 
 
-def test_docker_backup_adapter_raises_error_when_more_or_less_than_one_config_file_found(tmp_path: Path) -> None:
+def test_docker_backup_adapter_discover_config_files_raises_error_when_more_or_less_than_one_config_file_found(
+    tmp_path: Path,
+) -> None:
     tmp_path.joinpath("zero_files", "data").mkdir(parents=True)
     tmp_path.joinpath("two_files", "data", "more_data").mkdir(parents=True)
 

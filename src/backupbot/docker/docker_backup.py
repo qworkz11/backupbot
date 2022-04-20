@@ -15,6 +15,7 @@ from backupbot.docker.backup_tasks import (
 )
 from backupbot.docker.container_utils import docker_compose_start, docker_compose_stop
 from backupbot.docker.storage_info import DockerComposeService
+from backupbot.logger import logger
 from backupbot.utils import load_yaml_file, locate_files
 
 from docker import DockerClient, from_env
@@ -61,11 +62,9 @@ class DockerBackupAdapter(ContainerBackupAdapter):
                     elif scheme_definition["type"] == "mysql_backup":
                         backup_task = DockerMySQLBackupTask(**scheme_definition["config"])
                     else:
-                        print(f"[Warning]: Unknown backup scheme type: '{scheme_definition['type']}'")
-                        # TODO log error
+                        logger.error(f"Unknown backup scheme type: '{scheme_definition['type']}'")
                 except NotImplementedError as error:
-                    # TODO log error
-                    print(f"Failed to parse backup task of type '{scheme_definition['type']}': {error}.")
+                    logger.error(f"Failed to parse backup task of type '{scheme_definition['type']}': {error}.")
                     continue
 
                 backup_scheme[service_name].append(backup_task)
