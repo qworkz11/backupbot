@@ -64,10 +64,25 @@ class BackupBot:
                         subdir_path.mkdir(parents=True)
 
     def run(self) -> None:
-        storage_files = self.backup_adapter.discover_config_files(self.root)
-        storage_info: List[AbstractStorageInfo] = self.backup_adapter.parse_storage_info(storage_files, self.root)
+        try:
+            storage_files = self.backup_adapter.discover_config_files(self.root)
+        except RuntimeError as error:
+            logger.error(f"Failed to locate config files in '{self.root}': '{error.message}'.")
+            raise RuntimeError from error
 
-        backup_tasks: Dict[str, List[AbstractBackupTask]] = self.backup_adapter.parse_backup_scheme(self.backup_config)
+        try:
+            storage_info: List[AbstractStorageInfo] = self.backup_adapter.parse_storage_info(storage_files, self.root)
+        except RuntimeError as error:
+            logger.error(f"Failed to parse config files '{storage_files}': '{error.message}'.")
+            raise RuntimeError from error
+
+        try:
+            backup_tasks: Dict[str, List[AbstractBackupTask]] = self.backup_adapter.parse_backup_scheme(
+                self.backup_config
+            )
+        except RuntimeError as error:
+            logger.error(f"Failed to parse backup scheme '{self.backup_config}': '{error.message}'.")
+            raise RuntimeError from error
 
         self.create_service_backup_structure(storage_info, backup_tasks)
 
@@ -85,4 +100,11 @@ class BackupBot:
     ) -> None:
         for service_name, tasks in backup_tasks.items():
             for task in tasks:
-                task(storage_info, self.destination.joinpath(service_name, type(task).target_dir_name))
+                try:
+                    task(storage_info, self.destination.joinpath(service_name, type(task).target_dir_name))
+                except NotImplementedError as task_init_error:
+                    logger.error(f"Failed to execute backup task '{task}': '{task_init_error.message}'.")
+                except NotADirectoryError as dir_error:
+                    logger.error(f"Failed to backup task '{task}: '{dir_error.message}'.")
+                except RuntimeError as runtime_error:
+                    logger.error(f"Failed to backup task '{task}: '{runtime_error.message}'.")

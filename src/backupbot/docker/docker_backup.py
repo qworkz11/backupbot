@@ -79,7 +79,7 @@ class DockerBackupAdapter(ContainerBackupAdapter):
 
     def _parse_volume(self, volume: str) -> Tuple[str, str]:
         if not ":" in volume:
-            raise ValueError(f"Unable to parse volume: Delimiter ':' missing in '{volume}'.")
+            raise ValueError(f"Unable to parse volume: Delimiter ':' missing in volume '{volume}'.")
         split = volume.split(":")
         return split[0], split[1]
 
@@ -102,14 +102,20 @@ class DockerBackupAdapter(ContainerBackupAdapter):
             )
             if "volumes" in service_attributes:
                 for volume in service_attributes["volumes"]:
-                    if volume.startswith("."):
-                        host_directory, container_mount_point = self._parse_volume(volume)
-                        host_directory_path = root_directory.joinpath(host_directory)
+                    try:
+                        name, mount_point = self._parse_volume(volume)
+                    except ValueError as error:
+                        logger.error(
+                            f"""Failed to parse volume name due to an error in file '{self.config_files[0]}': """
+                            f"""{error.message}"""
+                        )
+                        continue
 
-                        service.bind_mounts.append(HostDirectory(host_directory_path, Path(container_mount_point)))
+                    if volume.startswith("."):
+                        host_directory_path = root_directory.joinpath(name)
+                        service.bind_mounts.append(HostDirectory(host_directory_path, Path(mount_point)))
                     else:
-                        volume_name, container_mount_point = self._parse_volume(volume)
-                        service.volumes.append(Volume(volume_name, Path(container_mount_point)))
+                        service.volumes.append(Volume(name, Path(mount_point)))
 
             services.append(service)
 
