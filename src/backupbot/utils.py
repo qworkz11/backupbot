@@ -3,7 +3,6 @@
 """Backupbot utility functions."""
 
 import subprocess
-from importlib.resources import path
 from pathlib import Path
 from typing import Dict, List
 

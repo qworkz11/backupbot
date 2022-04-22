@@ -37,7 +37,7 @@ def main() -> None:
         root=root_path,
         destination=destination_path,
         backup_config=backup_config_path,
-        container_runtime_environment=adapter,
+        adapter=adapter,
     )
 
     try:

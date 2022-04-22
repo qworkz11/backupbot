@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from backupbot.docker.container_utils import docker_compose_down, docker_compose_up
+from backupbot.docker_compose.container_utils import (
+    docker_compose_down,
+    docker_compose_up,
+)
 from docker import DockerClient, from_env
 from docker.errors import NotFound
 

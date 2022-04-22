@@ -8,16 +8,18 @@ from typing import Any, Dict, Generator, List, Tuple, Union
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
-from backupbot.docker.backup_tasks import (
+from backupbot.docker_compose.backup_tasks import (
     DockerBindMountBackupTask,
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
-from backupbot.docker.container_utils import docker_compose_start, docker_compose_stop
-from backupbot.docker.storage_info import DockerComposeService
+from backupbot.docker_compose.container_utils import (
+    docker_compose_start,
+    docker_compose_stop,
+)
+from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.logger import logger
 from backupbot.utils import load_yaml_file, locate_files
-
 from docker import DockerClient, from_env
 
 

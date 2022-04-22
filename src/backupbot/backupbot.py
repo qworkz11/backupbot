@@ -8,16 +8,14 @@ from typing import Dict, List
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.abstract.storage_info import AbstractStorageInfo
-from backupbot.docker.docker_backup import DockerBackupAdapter
+from backupbot.docker_compose.backup import DockerBackupAdapter
 from backupbot.logger import logger
 
 
 class BackupBot:
     """Class which coordinates all backup tasks."""
 
-    def __init__(
-        self, root: Path, destination: Path, backup_config: Path, container_runtime_environment: str = "docker-compose"
-    ) -> None:
+    def __init__(self, root: Path, destination: Path, backup_config: Path, adapter: str = "docker-compose") -> None:
         """Constructor.
 
         Args:
@@ -28,12 +26,12 @@ class BackupBot:
         self.root = root
         self.destination = destination
         self.backup_config: Path = backup_config
-        self.cri = container_runtime_environment
+        self.cri = adapter
 
-        if container_runtime_environment == "docker-compose":
+        if adapter == "docker-compose":
             self.backup_adapter: ContainerBackupAdapter = DockerBackupAdapter()
         else:
-            raise ValueError(f"Unknown CRI: '{container_runtime_environment}'.")
+            raise ValueError(f"Unknown CRI: '{adapter}'.")
 
     def create_service_backup_structure(
         self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]

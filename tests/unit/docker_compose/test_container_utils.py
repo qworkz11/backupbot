@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from backupbot.docker.container_utils import (
+from backupbot.docker_compose.container_utils import (
     docker_compose_down,
     docker_compose_start,
     docker_compose_stop,

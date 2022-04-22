@@ -4,12 +4,12 @@ from typing import List
 import pytest
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.data_structures import HostDirectory
-from backupbot.docker.backup_tasks import (
+from backupbot.docker_compose.backup_tasks import (
     DockerBindMountBackupTask,
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
-from backupbot.docker.storage_info import DockerComposeService
+from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.utils import path_to_string
 from tests.utils.dummies import create_dummy_task
 

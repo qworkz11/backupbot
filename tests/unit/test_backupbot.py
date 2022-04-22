@@ -2,15 +2,13 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable
 
 import pytest
-from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.backupbot import BackupBot
-from tests.utils.dummies import create_dummy_task
-
 from docker import DockerClient
+from tests.utils.dummies import create_dummy_task
 
 
 @dataclass
@@ -21,9 +19,7 @@ class DummyStorageInfo(AbstractStorageInfo):
 
 def test_init_raises_error_when_cri_unknown() -> None:
     with pytest.raises(ValueError):
-        BackupBot(
-            Path("unimportant"), Path("unimportant"), Path("unimportant"), container_runtime_environment="unknown_cri"
-        )
+        BackupBot(Path("unimportant"), Path("unimportant"), Path("unimportant"), adapter="unknown_cri")
 
 
 def test_create_service_backup_structure(tmp_path: Path) -> None:
@@ -79,7 +75,7 @@ def test_backupbot_backs_up_docker_compose_bind_mount(
         root=sample_docker_compose_project_dir,
         destination=tmp_path,
         backup_config=backup_config_file,
-        container_runtime_environment="docker",
+        adapter="docker-compose",
     )
 
     with running_docker_compose_project(compose_file) as _:
@@ -115,7 +111,7 @@ def test_backupbot_restarts_containers_after_backup(
         root=sample_docker_compose_project_dir,
         destination=tmp_path,
         backup_config=backup_config_file,
-        container_runtime_environment="docker",
+        adapter="docker-compose",
     )
 
     with running_docker_compose_project(compose_file) as _:
