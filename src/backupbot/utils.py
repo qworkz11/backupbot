@@ -108,7 +108,7 @@ def absolute_path(relative_bind_mounts: List[str], root: Path) -> List[Path]:
     return [root.joinpath(get_volume_path(relative_path)) for relative_path in relative_bind_mounts]
 
 
-def tar_file_or_directory(directory: Path, tar_name: str, destination: Path) -> Path:
+def tar_file_or_directory(file_or_directory: Path, tar_name: str, destination: Path) -> Path:
     """Tar-compresses the specified file or directory.
 
     Args:
@@ -121,13 +121,13 @@ def tar_file_or_directory(directory: Path, tar_name: str, destination: Path) -> 
         NotADirectoryError: If 'destination' is invalid.
         RuntimeError: In case tar returns an error.
     """
-    if not directory.exists():
-        raise NotADirectoryError(f"Directory to compress does not exist: '{directory}'.")
+    if not file_or_directory.exists():
+        raise NotADirectoryError(f"Directory to compress does not exist: '{file_or_directory}'.")
     if not destination.exists():
         raise NotADirectoryError(f"Target directory does not exist: '{destination}'.")
 
     tar_file_path = destination.joinpath(f"{tar_name}.tar.gz")
-    cmd_args = ("tar", "-czf", tar_file_path.absolute(), directory.absolute())
+    cmd_args = ("tar", "-czf", tar_file_path.absolute(), file_or_directory.absolute())
 
     proc_return: subprocess.CompletedProcess = subprocess.run(cmd_args)
 

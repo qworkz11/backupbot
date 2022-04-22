@@ -14,7 +14,7 @@ from backupbot.logger import logger
 def parse_args() -> Tuple[str, Path, Path, Optional[Path]]:
     parser = ArgumentParser()
 
-    parser.add_argument("adapter", choinces=["docker-compose"], help="Specifies the backup adapter to use.")
+    parser.add_argument("adapter", choices=["docker-compose"], help="Specifies the backup adapter to use.")
     parser.add_argument("destination", help="Absolute path to backup destination root directory.")
     parser.add_argument("backup_config", help="Path to the backup scheme configuration file (.json).")
     parser.add_argument("-r", "--root", help="Path to directory to backup.")

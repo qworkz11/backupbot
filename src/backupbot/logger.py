@@ -27,6 +27,8 @@ handlers: List[logging.Handler] = [file_handler, stdout_handler]
 
 logger = logging.getLogger(__name__)
 
+logger.setLevel(DEFAULT_LOG_LEVEL)
+
 for handler in handlers:
     handler.setLevel(DEFAULT_LOG_LEVEL)
     logger.addHandler(handler)

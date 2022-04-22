@@ -16,7 +16,7 @@ class BackupBot:
     """Class which coordinates all backup tasks."""
 
     def __init__(
-        self, root: Path, destination: Path, backup_config: Path, container_runtime_environment: str = "docker"
+        self, root: Path, destination: Path, backup_config: Path, container_runtime_environment: str = "docker-compose"
     ) -> None:
         """Constructor.
 
@@ -30,7 +30,7 @@ class BackupBot:
         self.backup_config: Path = backup_config
         self.cri = container_runtime_environment
 
-        if container_runtime_environment == "docker":
+        if container_runtime_environment == "docker-compose":
             self.backup_adapter: ContainerBackupAdapter = DockerBackupAdapter()
         else:
             raise ValueError(f"Unknown CRI: '{container_runtime_environment}'.")
