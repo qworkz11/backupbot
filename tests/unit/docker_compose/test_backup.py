@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Callable, List
+from unicodedata import bidirectional
 
 import backupbot.docker_compose.backup
 import pytest
@@ -11,9 +12,8 @@ from backupbot.docker_compose.backup_tasks import (
     DockerVolumeBackupTask,
 )
 from backupbot.docker_compose.storage_info import DockerComposeService
-from pytest import MonkeyPatch
-
 from docker import DockerClient
+from pytest import MonkeyPatch
 
 
 def test_docker_backup_adapter_discover_config_files(tmp_path: Path) -> None:
@@ -169,11 +169,38 @@ def test_docker_backup_stopped_system_stops_docker_compose_system(
     docker_client: DockerClient, running_docker_compose_project: Callable, sample_docker_compose_project_dir: Path
 ) -> None:
     compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
+    storage_info = [
+        DockerComposeService(
+            name="bind_mount_service",
+            container_name="bind_mount_service",
+            image="ubuntu",
+            hostname="bind_mount_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+        DockerComposeService(
+            name="volume_service",
+            container_name="volume_service",
+            image="ubuntu",
+            hostname="volume_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+        DockerComposeService(
+            name="mysql_service",
+            container_name="mysql_service",
+            image="mysql",
+            hostname="mysql_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+    ]
+
     with running_docker_compose_project(compose_file) as _:
         dba = DockerBackupAdapter()
         dba.config_files = [compose_file]
 
-        with dba.stopped_system(None) as __:
+        with dba.stopped_system(storage_info) as __:
             containers = [container.name for container in docker_client.containers.list(filters={"status": "exited"})]
             assert "bind_mount_service" in containers
             assert "volume_service" in containers
@@ -183,3 +210,48 @@ def test_docker_backup_stopped_system_stops_docker_compose_system(
         assert "bind_mount_service" in containers
         assert "volume_service" in containers
         assert "mysql_service" in containers
+
+
+def test_stopped_system_does_not_restart_system_when_it_has_not_been_running(
+    sample_docker_compose_project_dir: Path, docker_client: DockerClient
+) -> None:
+    compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
+    dba = DockerBackupAdapter()
+    dba.config_files = [compose_file]
+    storage_info = [
+        DockerComposeService(
+            name="bind_mount_service",
+            container_name="bind_mount_service",
+            image="ubuntu",
+            hostname="bind_mount_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+        DockerComposeService(
+            name="volume_service",
+            container_name="volume_service",
+            image="ubuntu",
+            hostname="volume_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+        DockerComposeService(
+            name="mysql_service",
+            container_name="mysql_service",
+            image="mysql",
+            hostname="mysql_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+    ]
+
+    with dba.stopped_system(storage_info) as _:
+        containers = [container.name for container in docker_client.containers.list(filters={"status": "running"})]
+        assert "bind_mount_service" not in containers
+        assert "volume_service" not in containers
+        assert "mysql_service" not in containers
+
+    containers = [container.name for container in docker_client.containers.list(filters={"status": "running"})]
+    assert "bind_mount_service" not in containers
+    assert "volume_service" not in containers
+    assert "mysql_service" not in containers

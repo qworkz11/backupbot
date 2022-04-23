@@ -1,9 +1,7 @@
 import json
 from contextlib import contextmanager
-from copy import deepcopy
-from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Tuple, Union
+from typing import Dict, Generator, List, Tuple
 
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
@@ -75,9 +73,28 @@ class DockerBackupAdapter(ContainerBackupAdapter):
 
     @contextmanager
     def stopped_system(self, storage_info: List[DockerComposeService] = None) -> Generator:
-        docker_compose_stop(self.config_files[0])
+        """Context manager which stops and restarts the docker-compose system if it is running.
+
+        Note: The system is considered running if any container is running.
+
+        Args:
+            storage_info (List[DockerComposeService], optional): Storage info. Defaults to None.
+
+        Yields:
+            Generator: Yields when the system is down.
+        """
+        container_names = [service.container_name for service in storage_info]
+        running_containers = [
+            container.name for container in self.docker_client.containers.list(filters={"status": "running"})
+        ]
+        system_running = any([name in running_containers for name in container_names])
+
+        docker_compose_stop(self.config_files[0])  # in case some of the containers were running
+
         yield None
-        docker_compose_start(self.config_files[0])
+
+        if system_running:
+            docker_compose_start(self.config_files[0])
 
     def _parse_volume(self, volume: str) -> Tuple[str, str]:
         if not ":" in volume:
