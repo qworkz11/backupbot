@@ -1,6 +1,7 @@
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from backupbot.abstract.backup_task import AbstractBackupTask
+from backupbot.abstract.storage_info import AbstractStorageInfo
 
 
 def create_dummy_task(name: str) -> AbstractBackupTask:
@@ -14,9 +15,11 @@ def create_dummy_task(name: str) -> AbstractBackupTask:
             pass
 
         def __repr__(self) -> str:
-            return ""
+            return "DummyBackupTask"
 
-        def __call__(self, storage_info: Dict[str, Dict[str, List]]) -> None:
+        def __call__(
+            self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
+        ) -> None:
             pass
 
     return DummyBackupTask()

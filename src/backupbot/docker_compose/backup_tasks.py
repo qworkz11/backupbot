@@ -25,7 +25,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         self.bind_mounts = bind_mounts
 
         if kwargs:
-            raise NotImplementedError(f"Received unknown parameters: {kwargs}")
+            raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
     def __call__(self, storage_info: List[DockerComposeService], backup_task_dir: Path) -> None:
         """Executes the bind mount backup task for docker-compose environments. Creates a sub-folder for each bind mount
@@ -94,7 +94,7 @@ class DockerVolumeBackupTask(AbstractBackupTask):
         self.volumes = volumes
 
         if kwargs:
-            raise NotImplementedError(f"Received unknown parameters: {kwargs}")
+            raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
     def __call__(self, storage_info: Dict[str, Dict[str, List]], target_dir: Path) -> None:
         pass
@@ -121,7 +121,7 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         self.password = password
 
         if kwargs:
-            raise NotImplementedError(f"Received unknown parameters: {kwargs}")
+            raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
     def __call__(self, storage_info: Dict[str, Dict[str, List]], target_dir: Path) -> None:
         pass

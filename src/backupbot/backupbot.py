@@ -42,7 +42,7 @@ class BackupBot:
         if adapter == "docker-compose":
             self.backup_adapter: ContainerBackupAdapter = DockerBackupAdapter()
         else:
-            raise ValueError(f"Unknown CRI: '{adapter}'.")
+            raise ValueError(f"Unknown backup adapter: '{adapter}'.")
 
     def create_service_backup_structure(
         self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
@@ -112,7 +112,7 @@ class BackupBot:
 
     def _run_backup_tasks(
         self,
-        storage_info: Dict[str, List[AbstractStorageInfo]],
+        storage_info: List[AbstractStorageInfo],
         backup_tasks: Dict[str, List[AbstractBackupTask]],
     ) -> List[Path]:
         created_files = []
@@ -122,10 +122,10 @@ class BackupBot:
                     task_files = task(storage_info, self.destination.joinpath(service_name, type(task).target_dir_name))
                     created_files.extend(task_files)
                 except NotImplementedError as task_init_error:
-                    logger.error(f"Failed to execute backup task '{task}': '{task_init_error.message}'.")
+                    logger.error(f"Failed to execute backup task '{task}': '{task_init_error}'.")
                 except NotADirectoryError as dir_error:
-                    logger.error(f"Failed to backup task '{task}: '{dir_error.message}'.")
+                    logger.error(f"Failed to execute backup task '{task}': '{dir_error}'.")
                 except RuntimeError as runtime_error:
-                    logger.error(f"Failed to backup task '{task}: '{runtime_error.message}'.")
+                    logger.error(f"Failed to execute backup task '{task}': '{runtime_error}'.")
 
             return created_files

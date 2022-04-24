@@ -1,13 +1,16 @@
 """Backupbot unit tests."""
 
 from dataclasses import dataclass
+from logging import ERROR
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Dict, List, Optional
 
 import pytest
+from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.backupbot import BackupBot
 from docker import DockerClient
+from pytest import LogCaptureFixture, MonkeyPatch
 from tests.utils.dummies import create_dummy_task
 
 
@@ -15,6 +18,28 @@ from tests.utils.dummies import create_dummy_task
 class DummyStorageInfo(AbstractStorageInfo):
     name: str
     unused_value: str
+
+
+class RaisingBackupTask(AbstractBackupTask):
+    target_dir_name: str = "raising"
+
+    def __init__(self) -> None:
+        pass
+
+    def __call__(
+        self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
+    ) -> None:
+        pass
+
+    def __repr__(self) -> str:
+        return "RaisingBackupTask"
+
+    def __eq__(self, o: object) -> bool:
+        pass
+
+
+def raise_error(exception: Exception, msg: Optional[str] = None) -> None:
+    raise exception(msg)
 
 
 def test_init_raises_error_when_cri_unknown() -> None:
@@ -178,3 +203,52 @@ def test_update_file_versions_major(tmp_path: Path) -> None:
     assert tmp_path.joinpath("backup1", "file-1-0.tar.gz").is_file()
 
     assert tmp_path.joinpath("backup2", "file-0-0.tar.gz").is_file()
+
+
+def test_run_backup_tasks_logs_not_implemented_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+    bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
+    monkeypatch.setattr(
+        RaisingBackupTask, "__call__", lambda *_, **__: raise_error(NotImplementedError, "not implemented error")
+    )
+
+    backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
+
+    bub._run_backup_tasks({"unimportant_service": []}, backup_tasks)
+
+    assert (
+        "backupbot.logger",
+        ERROR,
+        "Failed to execute backup task 'RaisingBackupTask': 'not implemented error'.",
+    ) in caplog.record_tuples
+
+
+def test_run_backup_tasks_logs_not_a_directory_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+    bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
+    monkeypatch.setattr(
+        RaisingBackupTask, "__call__", lambda *_, **__: raise_error(NotADirectoryError, "not a directory error")
+    )
+
+    backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
+
+    bub._run_backup_tasks({"unimportant_service": []}, backup_tasks)
+
+    assert (
+        "backupbot.logger",
+        ERROR,
+        "Failed to execute backup task 'RaisingBackupTask': 'not a directory error'.",
+    ) in caplog.record_tuples
+
+
+def test_run_backup_tasks_logs_runtime_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+    bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
+    monkeypatch.setattr(RaisingBackupTask, "__call__", lambda *_, **__: raise_error(RuntimeError, "runtime error"))
+
+    backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
+
+    bub._run_backup_tasks({"unimportant_service": []}, backup_tasks)
+
+    assert (
+        "backupbot.logger",
+        ERROR,
+        "Failed to execute backup task 'RaisingBackupTask': 'runtime error'.",
+    ) in caplog.record_tuples
