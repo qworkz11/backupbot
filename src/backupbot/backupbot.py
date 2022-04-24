@@ -73,6 +73,32 @@ class BackupBot:
                         subdir_path.mkdir(parents=True)
 
     def run(self, versioning: bool = False) -> None:
+        """Executes the backup pipeline provided through the provided backup adapter.
+
+        Backup steps:
+        1) Gather configuration files from the target platform. This can e.g. be a docker-compose.yaml file in case of a
+            docker-compose system.
+        2) Parse information from configuration files into an AbstractStorageInfo instance.
+        3) Parse backup scheme (JSON format) into a Dictionary. Dictionary maps service names to AbstractBackupTask
+            instance.
+        4) Using the parsed information, the target backup folder structure is created (if necessary).
+        5) Execution of all backup tasks.
+        6) If parameter 'versioning' is set: Update version numbers of just created files and files from previous
+            backups.
+
+        Note that errors in steps 1)-4) are re-raised and lead to a failed execution of the backup. Errors in step 5)
+        are logged but do not lead to a full failure. This is so that a partial error does not affect the backup of
+        working parts.
+
+        Args:
+            versioning (bool, optional): Whether or not to add version numbers to newly created files and update old
+                backup versions. Defaults to False.
+
+        Raises:
+            RuntimeError: If the target platform's config files cannot be loaded.
+            RuntimeError: If the loaded config files cannot be parsed.
+            RuntimeError: If the backup scheme cannot be parsed.
+        """
         try:
             storage_files = self.backup_adapter.discover_config_files(self.root)
         except RuntimeError as error:
