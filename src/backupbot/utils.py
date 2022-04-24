@@ -3,6 +3,7 @@
 """Backupbot utility functions."""
 
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
@@ -148,3 +149,7 @@ def path_to_string(directory: Path, num_steps: int = -1, delim: str = "-") -> st
 
     start = len(path_components) - num_steps
     return delim.join(path_components[start:])
+
+
+def timestamp() -> str:
+    return datetime.now().strftime("%y-%m-%d-%H-%M-%S-%")

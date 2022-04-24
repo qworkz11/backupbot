@@ -6,7 +6,7 @@ from typing import Dict, List
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.data_structures import HostDirectory
 from backupbot.docker_compose.storage_info import DockerComposeService
-from backupbot.utils import path_to_string, tar_file_or_directory
+from backupbot.utils import path_to_string, tar_file_or_directory, timestamp
 
 
 class DockerBindMountBackupTask(AbstractBackupTask):
@@ -53,11 +53,14 @@ class DockerBindMountBackupTask(AbstractBackupTask):
                     if any([host_dir.path.match(bind_mount) for bind_mount in self.bind_mounts])
                 ]
             for mount in backup_mounts:
-                target = backup_task_dir.joinpath(path_to_string(mount.path, num_steps=3))
-                if not target.is_dir():
-                    target.mkdir(parents=False)
+                string_path = path_to_string(mount.path, num_steps=1)
+                target_dir = backup_task_dir.joinpath(string_path)
+                tar_name = f"{string_path}-{timestamp()}"
 
-                tar_file = tar_file_or_directory(mount.path, path_to_string(mount.path, num_steps=3), target)
+                if not target_dir.is_dir():
+                    target_dir.mkdir(parents=False)
+
+                tar_file = tar_file_or_directory(mount.path, tar_name, target_dir)
                 created_files.append(tar_file)
 
         return created_files

@@ -5,6 +5,7 @@ from logging import ERROR
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+import backupbot.docker_compose.backup_tasks
 import pytest
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
@@ -91,7 +92,10 @@ def test_create_service_backup_structure_creates_directories_only_when_specified
 
 @pytest.mark.docker
 def test_backupbot_backs_up_docker_compose_bind_mount(
-    running_docker_compose_project: Callable, sample_docker_compose_project_dir: Path, tmp_path: Path
+    running_docker_compose_project: Callable,
+    sample_docker_compose_project_dir: Path,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
     backup_config_file = sample_docker_compose_project_dir.joinpath("bind_mount_backup_scheme.json")
@@ -103,6 +107,8 @@ def test_backupbot_backs_up_docker_compose_bind_mount(
         adapter="docker-compose",
     )
 
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
+
     with running_docker_compose_project(compose_file) as _:
         bub.run()
 
@@ -113,11 +119,11 @@ def test_backupbot_backs_up_docker_compose_bind_mount(
     assert len(list(bind_mounts_task_dir.iterdir())) == 1
     assert bind_mounts_task_dir.is_dir()
 
-    bind_mount_dir = bind_mounts_task_dir.joinpath("resources-sample_docker_compose_service-bind_mount")
+    bind_mount_dir = bind_mounts_task_dir.joinpath("bind_mount")
     assert len(list(bind_mount_dir.iterdir())) == 1
     assert bind_mount_dir.is_dir()
 
-    file = bind_mount_dir.joinpath("resources-sample_docker_compose_service-bind_mount.tar.gz")
+    file = bind_mount_dir.joinpath("bind_mount-TIMESTAMP.tar.gz")
     assert len(list(bind_mount_dir.iterdir())) == 1
     assert file.is_file()
 
@@ -145,64 +151,6 @@ def test_backupbot_restarts_containers_after_backup(
             container.name for container in docker_client.containers.list(filters={"status": "running"})
         ]
         assert "bind_mount_service" in running_containers
-
-
-def test_update_file_versions_minor(tmp_path: Path) -> None:
-    backup_dirs = [tmp_path.joinpath("backup1"), tmp_path.joinpath("backup2")]
-    files = [
-        tmp_path.joinpath("backup1", "file.tar.gz"),
-        tmp_path.joinpath("backup1", "file-0-0.tar.gz"),
-        tmp_path.joinpath("backup2", "file.tar.gz"),
-    ]
-
-    for d in backup_dirs:
-        d.mkdir()
-    for file in files:
-        file.touch()
-
-    bub = BackupBot(
-        Path("unimportant"),
-        destination=tmp_path,
-        backup_config=Path("unimportant"),
-        adapter="docker-compose",
-        update_major=False,
-    )
-
-    bub.update_file_versions(created_files=files)
-
-    assert tmp_path.joinpath("backup1", "file-0-0.tar.gz").is_file()
-    assert tmp_path.joinpath("backup1", "file-0-1.tar.gz").is_file()
-
-    assert tmp_path.joinpath("backup2", "file-0-0.tar.gz").is_file()
-
-
-def test_update_file_versions_major(tmp_path: Path) -> None:
-    backup_dirs = [tmp_path.joinpath("backup1"), tmp_path.joinpath("backup2")]
-    files = [
-        tmp_path.joinpath("backup1", "file.tar.gz"),
-        tmp_path.joinpath("backup1", "file-0-0.tar.gz"),
-        tmp_path.joinpath("backup2", "file.tar.gz"),
-    ]
-
-    for d in backup_dirs:
-        d.mkdir()
-    for file in files:
-        file.touch()
-
-    bub = BackupBot(
-        Path("unimportant"),
-        destination=tmp_path,
-        backup_config=Path("unimportant"),
-        adapter="docker-compose",
-        update_major=True,
-    )
-
-    bub.update_file_versions(created_files=files)
-
-    assert tmp_path.joinpath("backup1", "file-0-0.tar.gz").is_file()
-    assert tmp_path.joinpath("backup1", "file-1-0.tar.gz").is_file()
-
-    assert tmp_path.joinpath("backup2", "file-0-0.tar.gz").is_file()
 
 
 def test_run_backup_tasks_logs_not_implemented_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:

@@ -72,7 +72,7 @@ class BackupBot:
                     if not subdir_path.is_dir():
                         subdir_path.mkdir(parents=True)
 
-    def run(self, versioning: bool = False) -> None:
+    def run(self) -> None:
         """Executes the backup pipeline provided through the provided backup adapter.
 
         Backup steps:
@@ -122,10 +122,7 @@ class BackupBot:
         self.create_service_backup_structure(storage_info, backup_tasks)
 
         with self.backup_adapter.stopped_system(storage_info) as _:
-            created_files = self._run_backup_tasks(storage_info, backup_tasks)
-
-        if versioning:
-            self.update_file_versions(created_files)
+            self._run_backup_tasks(storage_info, backup_tasks)
 
     def update_file_versions(self, created_files: List[Path]) -> None:
         """Updates version numbers in all specified files' parent directories.
