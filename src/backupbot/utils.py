@@ -9,32 +9,6 @@ from typing import Dict, List
 from yaml import Loader, load
 
 
-def locate_files(root: Path, file_name: str, result: List[Path]) -> None:
-    """Locates all files with the specified name in the specified directory (recursively) and add their paths to the
-    specified result list.
-
-    Args:
-        root (Path): Directory root to start search from.
-        file_name (str): File name to search for.
-        restult (List[Path]): List to store found paths in.
-
-    Raises:
-        NotADirectoryError: If the specified directory is invalid.
-    """
-    if not root.exists():
-        raise NotADirectoryError(f"Unable to locate docker-compose.yaml: Directory '{root}' does not exits.")
-
-    if root.joinpath("docker-compose.yaml").is_file():
-        result.append(root.joinpath("docker-compose.yaml"))
-
-    directories = [file for file in root.iterdir() if file.is_dir()]
-    if len(directories) == 0:
-        return
-
-    for dir in directories:
-        locate_files(dir, file_name, result)
-
-
 def match_files(root: Path, pattern: str, result: List[Path]) -> None:
     """Finds all files (recursively) that match the specified pattern.
 
@@ -47,10 +21,12 @@ def match_files(root: Path, pattern: str, result: List[Path]) -> None:
         NotADirectoryError: If root is no valid directory.
     """
     if not root.exists():
-        raise NotADirectoryError(f"Unable to locate docker-compose.yaml: Directory '{root}' does not exits.")
-
+        raise NotADirectoryError(
+            f"Unable to locate files matching pattern '{pattern}': Directory '{root}' does not exits."
+        )
+    # return list(root.glob(f"**/{pattern}"))
     for file in [f for f in root.iterdir() if f.is_file()]:
-        if file.match(pattern):
+        if pattern in file.name:
             result.append(file)
 
     directories = [file for file in root.iterdir() if file.is_dir()]
@@ -107,13 +83,15 @@ def absolute_path(relative_bind_mounts: List[str], root: Path) -> List[Path]:
     return [root.joinpath(get_volume_path(relative_path)) for relative_path in relative_bind_mounts]
 
 
-def tar_file_or_directory(file_or_directory: Path, tar_name: str, destination: Path) -> Path:
+def tar_file_or_directory(file_or_directory: Path, tar_name: str, destination: Path, override: bool = False) -> Path:
     """Tar-compresses the specified file or directory.
 
     Args:
         directory (Path): The file or directory to tar-compress.
         tar_name (str): Target name of the tar file.
         destination (Path): Target directory for the tar file.
+        override (bool): Whether or not to override an existing file. If set to False, a number will be appended to the
+            tar file's name. Defaults to False.
 
     Raises:
         NotADirectoryError: If 'directory' is invalid.
@@ -126,6 +104,16 @@ def tar_file_or_directory(file_or_directory: Path, tar_name: str, destination: P
         raise NotADirectoryError(f"Target directory does not exist: '{destination}'.")
 
     tar_file_path = destination.joinpath(f"{tar_name}.tar.gz")
+
+    if tar_file_path.exists():
+        if not override:
+            bare_name = tar_file_path.name.replace(".tar.gz", "")
+            if "(" in bare_name:
+                bare_name = bare_name.split("(")[0]
+            existing_files = []
+            match_files(destination, bare_name, existing_files)
+            tar_file_path = destination.joinpath(f"{tar_name}({len(existing_files) - 1}).tar.gz")
+
     cmd_args = ("tar", "-czf", tar_file_path.absolute(), file_or_directory.absolute())
 
     proc_return: subprocess.CompletedProcess = subprocess.run(cmd_args)

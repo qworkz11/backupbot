@@ -11,58 +11,10 @@ from backupbot.utils import (
     absolute_path,
     get_volume_path,
     load_yaml_file,
-    locate_files,
     match_files,
     path_to_string,
     tar_file_or_directory,
 )
-
-
-def test_locate_files_finds_single_file(tmp_path: Path) -> None:
-    tmp_path.joinpath("services", "data").mkdir(parents=True)
-    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
-    tmp_path.joinpath("services", "docker-compose.yaml").touch()
-
-    result: List[Path] = []
-    locate_files(tmp_path, "docker-compose.yaml", result)
-
-    assert result == [tmp_path.joinpath("services", "docker-compose.yaml")]
-
-
-def test_locate_files_finds_multiple_files(tmp_path: Path) -> None:
-    tmp_path.joinpath("services", "data").mkdir(parents=True)
-    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
-
-    tmp_path.joinpath("services", "docker-compose.yaml").touch()
-    tmp_path.joinpath("services", "data", "docker-compose.yaml").touch()
-    tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
-
-    result: List[Path] = []
-    locate_files(tmp_path, "docker-compose.yaml", result)
-
-    # order does not matter:
-    assert not (
-        set(result).difference(
-            [
-                tmp_path.joinpath("services", "docker-compose.yaml"),
-                tmp_path.joinpath("services", "data", "docker-compose.yaml"),
-                tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml"),
-            ]
-        )
-    )
-    assert len(result) == len(set(result))  # to make sure no doubles are found
-
-
-def test_locate_files_returns_empty_list_if_no_file_is_found(tmp_path: Path) -> None:
-    result: List[Path] = []
-    locate_files(tmp_path, "docker-compose.yaml", result)
-
-    assert len(result) == 0
-
-
-def test_locate_files_raises_error_for_invalid_directory() -> None:
-    with pytest.raises(NotADirectoryError):
-        locate_files(Path("not_exitsting_path"), "docker-compose.yaml", [])
 
 
 def test_match_files_finds_single_file(tmp_path: Path) -> None:
@@ -102,7 +54,6 @@ def test_match_files_finds_multiple_files(tmp_path: Path) -> None:
 
 def test_match_files_returns_empty_list_when_no_files_match(tmp_path: Path) -> None:
     result: List[Path] = []
-
     match_files(tmp_path, "*.not_exising", result)
 
     assert len(result) == 0
@@ -111,6 +62,21 @@ def test_match_files_returns_empty_list_when_no_files_match(tmp_path: Path) -> N
 def test_match_files_raises_error_for_invalid_directory() -> None:
     with pytest.raises(NotADirectoryError):
         match_files(Path("not_exitsting_path"), "unimportant_pattern", [])
+
+
+def test_match_files_matches_files_with_containing_pattern(tmp_path: Path) -> None:
+    tmp_path.joinpath("services", "data").mkdir(parents=True)
+    tmp_path.joinpath("services", "other_data", "more_data").mkdir(parents=True)
+    tmp_path.joinpath("services", "file.txt").touch()
+    tmp_path.joinpath("services", "other_data", "fileXYZ.txt").touch()
+
+    result: List[Path] = []
+    match_files(tmp_path, "file", result)
+
+    assert result == [
+        tmp_path.joinpath("services", "file.txt"),
+        tmp_path.joinpath("services", "other_data", "fileXYZ.txt"),
+    ]
 
 
 def test_load_yaml_file_parses_dockerfile_correctly(
@@ -210,6 +176,21 @@ def test_tar_file_or_directory_for_file(tmp_path: Path) -> None:
 
     tar_file_or_directory(file, "file.txt", tmp_path)
     assert tmp_path.joinpath("file.txt.tar.gz").is_file()
+
+
+def test_tar_file_or_directory_does_not_override_existing_files_when_override_not_set(tmp_path: Path) -> None:
+    file = tmp_path.joinpath("file.txt")
+    file.touch()
+
+    tar_files = [tmp_path.joinpath("file.txt.tar.gz"), tmp_path.joinpath("file.txt(1).tar.gz")]
+    for f in tar_files:
+        f.touch()
+
+    tar_file_or_directory(file, "file.txt", tmp_path, override=False)
+
+    assert tmp_path.joinpath("file.txt.tar.gz").is_file()
+    assert tmp_path.joinpath("file.txt(1).tar.gz").is_file()
+    assert tmp_path.joinpath("file.txt(2).tar.gz").is_file()
 
 
 def test_path_to_string() -> None:

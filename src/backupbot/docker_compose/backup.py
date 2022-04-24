@@ -17,7 +17,7 @@ from backupbot.docker_compose.container_utils import (
 )
 from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.logger import logger
-from backupbot.utils import load_yaml_file, locate_files
+from backupbot.utils import load_yaml_file, match_files
 from docker import DockerClient, from_env
 
 
@@ -27,7 +27,7 @@ class DockerBackupAdapter(ContainerBackupAdapter):
         self.config_files: List[Path] = []
 
     def discover_config_files(self, root: Path) -> List[Path]:
-        locate_files(root, "docker-compose.yaml", self.config_files)
+        match_files(root, "docker-compose.yaml", self.config_files)
 
         num_files = len(self.config_files)
         if num_files != 1:
