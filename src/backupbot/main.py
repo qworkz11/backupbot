@@ -48,9 +48,9 @@ def main() -> None:
     )
 
     try:
-        bub.run()
-    except RuntimeError:
-        logger.error("Exited with an error.")
+        bub.run(versioning=True)
+    except RuntimeError as error:
+        logger.error(f"Exited with an error: {error}.")
         sys.exit(1)
     logger.info("Exited with success.")
     sys.exit(0)
