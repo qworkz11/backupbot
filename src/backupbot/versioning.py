@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """File versioning module."""
 
 import re

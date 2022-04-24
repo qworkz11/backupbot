@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""A dummy main module."""
+"""Main backupbot module, containing the main CLI entry point."""
 
 import sys
 from argparse import ArgumentParser
@@ -12,6 +12,12 @@ from backupbot.logger import logger
 
 
 def parse_args() -> Tuple[str, Path, Path, Optional[Path]]:
+    """Parses CLI parameters.
+
+    Returns:
+        Tuple[str, Path, Path, Optional[Path]]: Adapter type, destination path instance, backup scheme config file path,
+            source root directory.
+    """
     parser = ArgumentParser()
 
     parser.add_argument("adapter", choices=["docker-compose"], help="Specifies the backup adapter to use.")
@@ -28,6 +34,7 @@ def parse_args() -> Tuple[str, Path, Path, Optional[Path]]:
 
 
 def main() -> None:
+    """Main CLI entry point."""
     adapter, destination_path, backup_config_path, root_path = parse_args()
 
     if root_path is None:

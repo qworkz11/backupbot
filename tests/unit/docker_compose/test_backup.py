@@ -5,7 +5,7 @@ from unicodedata import bidirectional
 import backupbot.docker_compose.backup
 import pytest
 from backupbot.data_structures import HostDirectory, Volume
-from backupbot.docker_compose.backup import DockerBackupAdapter
+from backupbot.docker_compose.backup import DockerComposeBackupAdapter
 from backupbot.docker_compose.backup_tasks import (
     DockerBindMountBackupTask,
     DockerMySQLBackupTask,
@@ -22,7 +22,7 @@ def test_docker_backup_adapter_discover_config_files(tmp_path: Path) -> None:
 
     tmp_path.joinpath("services", "other_data", "more_data", "docker-compose.yaml").touch()
 
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     files = dba.discover_config_files(tmp_path)
 
@@ -43,7 +43,7 @@ def test_docker_backup_adapter_discover_config_files_raises_error_when_more_or_l
     tmp_path.joinpath("two_files", "data", "docker-compose.yaml").touch()
     tmp_path.joinpath("two_files", "data", "more_data", "docker-compose.yaml").touch()
 
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     with pytest.raises(RuntimeError):
         dba.discover_config_files(tmp_path.joinpath("zero_files"))
@@ -55,7 +55,7 @@ def test_docker_backup_adapter_discover_config_files_raises_error_when_more_or_l
 def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_correctly(
     tmp_path: Path, dummy_docker_compose_file: Path
 ) -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     # plit these up to enable better debugging...
     parsed = dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path)
@@ -91,7 +91,7 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
 
 
 def test_docker_backup_adapter_parse_backup_scheme(dummy_backup_scheme_file: Path) -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     assert dba.parse_backup_scheme(dummy_backup_scheme_file) == {
         "service1": [
@@ -106,7 +106,7 @@ def test_docker_backup_adapter_parse_backup_scheme(dummy_backup_scheme_file: Pat
 def test_docker_backup__parse_compose_file_raises_error_if_no_services_key_in_file(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     monkeypatch.setattr(backupbot.docker_compose.backup, "load_yaml_file", lambda *_, **__: {})
 
@@ -115,7 +115,7 @@ def test_docker_backup__parse_compose_file_raises_error_if_no_services_key_in_fi
 
 
 def test_docker_backup_parse_backup_scheme_raises_error_for_wrong_file_type(tmp_path: Path) -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     file = tmp_path.joinpath("no_json.txt")
     file.touch()
@@ -125,7 +125,7 @@ def test_docker_backup_parse_backup_scheme_raises_error_for_wrong_file_type(tmp_
 
 
 def test_docker_backup_parse_storage_info_raises_error_when_multiple_files_are_speccified(tmp_path: Path) -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     with pytest.raises(RuntimeError):
         dba.parse_storage_info([Path("/first/path"), Path("/second/path")], tmp_path)
@@ -134,7 +134,7 @@ def test_docker_backup_parse_storage_info_raises_error_when_multiple_files_are_s
 def test_docker_backup_parse_storage_info_returns_list_of_docker_compose_services(
     tmp_path: Path, dummy_docker_compose_file: Path
 ) -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     result = dba.parse_storage_info([dummy_docker_compose_file], tmp_path)
 
@@ -145,21 +145,21 @@ def test_docker_backup_parse_storage_info_returns_list_of_docker_compose_service
 
 
 def test_docker_backup__parse_volume_returns_correctly_parsed_volume_names_and_mount_points() -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     assert dba._parse_volume("volume:/container/mount/point") == ("volume", "/container/mount/point")
     assert dba._parse_volume("./bind_mount:/container/mount/point") == ("./bind_mount", "/container/mount/point")
 
 
 def test_docker_backup__parse_volume_raises_error_for_invalid_volume_statement() -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     with pytest.raises(ValueError):
         dba._parse_volume("invalid_volume_string")
 
 
 def test_docker_backup__make_backup_name_creates_correct_name() -> None:
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
 
     assert dba._make_backup_name(Path("/path/to/data"), "data_container") == "data_container-data"
     assert dba._make_backup_name(Path("directory"), "data_container") == "data_container-directory"
@@ -197,7 +197,7 @@ def test_docker_backup_stopped_system_stops_docker_compose_system(
     ]
 
     with running_docker_compose_project(compose_file) as _:
-        dba = DockerBackupAdapter()
+        dba = DockerComposeBackupAdapter()
         dba.config_files = [compose_file]
 
         with dba.stopped_system(storage_info) as __:
@@ -216,7 +216,7 @@ def test_stopped_system_does_not_restart_system_when_it_has_not_been_running(
     sample_docker_compose_project_dir: Path, docker_client: DockerClient
 ) -> None:
     compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
-    dba = DockerBackupAdapter()
+    dba = DockerComposeBackupAdapter()
     dba.config_files = [compose_file]
     storage_info = [
         DockerComposeService(

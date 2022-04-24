@@ -5,10 +5,10 @@
 from pathlib import Path
 from typing import Dict, List
 
+from backupbot.abstract.backup_adapter import BackupAdapter
 from backupbot.abstract.backup_task import AbstractBackupTask
-from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.abstract.storage_info import AbstractStorageInfo
-from backupbot.docker_compose.backup import DockerBackupAdapter
+from backupbot.docker_compose.backup import DockerComposeBackupAdapter
 from backupbot.logger import logger
 from backupbot.versioning import update_version_numbers
 
@@ -40,7 +40,7 @@ class BackupBot:
         self.update_major = update_major
 
         if adapter == "docker-compose":
-            self.backup_adapter: ContainerBackupAdapter = DockerBackupAdapter()
+            self.backup_adapter: BackupAdapter = DockerComposeBackupAdapter()
         else:
             raise ValueError(f"Unknown backup adapter: '{adapter}'.")
 

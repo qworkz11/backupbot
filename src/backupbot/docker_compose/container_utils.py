@@ -1,10 +1,12 @@
-from calendar import c
+#!/usr/bin/env python3
+
+"""Utility functions to integrate docker and docker-compose functionality."""
+
 from contextlib import contextmanager
 from pathlib import Path
 from subprocess import CompletedProcess, run
 
 from docker import DockerClient
-from docker.models.containers import Container
 
 
 @contextmanager

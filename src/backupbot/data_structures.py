@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+
+"""Module that provides data structures needed throughout the project."""
+
 from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path

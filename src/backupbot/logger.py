@@ -4,7 +4,6 @@
 
 import logging
 import sys
-from pathlib import Path
 from typing import List
 
 # LOGGING_PATH = Path().cwd().joinpath("backupbot.log")

@@ -24,7 +24,7 @@ def match_files(root: Path, pattern: str, result: List[Path]) -> None:
         raise NotADirectoryError(
             f"Unable to locate files matching pattern '{pattern}': Directory '{root}' does not exits."
         )
-    # return list(root.glob(f"**/{pattern}"))
+
     for file in [f for f in root.iterdir() if f.is_file()]:
         if pattern in file.name:
             result.append(file)

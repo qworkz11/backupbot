@@ -10,7 +10,7 @@ from backupbot.abstract.storage_info import AbstractStorageInfo
 from pydantic import BaseModel
 
 
-class ContainerBackupAdapter(ABC):
+class BackupAdapter(ABC):
     @abstractmethod
     def discover_config_files(self, root: Path) -> List[Path]:
         ...

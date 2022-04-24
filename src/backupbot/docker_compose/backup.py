@@ -1,10 +1,14 @@
+#!/usr/bin/env python3
+
+"""Module containing the DockerComposeBackupAdapter class."""
+
 import json
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Generator, List, Tuple
 
+from backupbot.abstract.backup_adapter import BackupAdapter
 from backupbot.abstract.backup_task import AbstractBackupTask
-from backupbot.abstract.container_backup_adapter import ContainerBackupAdapter
 from backupbot.data_structures import HostDirectory, Volume
 from backupbot.docker_compose.backup_tasks import (
     DockerBindMountBackupTask,
@@ -21,7 +25,7 @@ from backupbot.utils import load_yaml_file, match_files
 from docker import DockerClient, from_env
 
 
-class DockerBackupAdapter(ContainerBackupAdapter):
+class DockerComposeBackupAdapter(BackupAdapter):
     def __init__(self):
         self.docker_client: DockerClient = from_env()
         self.config_files: List[Path] = []

@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
+
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from backupbot.abstract.backup_task import AbstractBackupTask
-from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.data_structures import HostDirectory
 from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.utils import path_to_string, tar_file_or_directory
