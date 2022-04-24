@@ -41,6 +41,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
             storage_info (List[DockerComposeService]): Docker-compose storage info.
             backup_task_dir (Path): Destination directory.
         """
+        created_files: List[Path] = []
         for service in storage_info:
             if self.bind_mounts == ["all"]:
                 backup_mounts: List[HostDirectory] = service.bind_mounts
@@ -55,7 +56,10 @@ class DockerBindMountBackupTask(AbstractBackupTask):
                 if not target.is_dir():
                     target.mkdir(parents=False)
 
-                tar_file_or_directory(mount.path, path_to_string(mount.path, num_steps=3), target)
+                tar_file = tar_file_or_directory(mount.path, path_to_string(mount.path, num_steps=3), target)
+                created_files.append(tar_file)
+
+        return created_files
 
     def __eq__(self, o: object) -> bool:
         """Equality function.

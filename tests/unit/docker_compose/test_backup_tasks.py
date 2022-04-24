@@ -54,7 +54,7 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(tmp_path: Path, 
 
     backup_task = DockerBindMountBackupTask(bind_mounts=["all"])
 
-    backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
+    tar_files = backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
 
     tar_file1_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=3))
     tar_file2_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3))
@@ -65,8 +65,13 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(tmp_path: Path, 
     tar_file1 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=3) + ".tar.gz"
     tar_file2 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=3) + ".tar.gz"
 
-    assert tar_file1_dir.joinpath(tar_file1).is_file()
-    assert tar_file2_dir.joinpath(tar_file2).is_file()
+    tar_file1_file = tar_file1_dir.joinpath(tar_file1)
+    tar_file2_file = tar_file2_dir.joinpath(tar_file2)
+
+    assert tar_file1_file.is_file()
+    assert tar_file2_file.is_file()
+
+    assert tar_files == [tar_file1_file, tar_file2_file]
 
 
 def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(

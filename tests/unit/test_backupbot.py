@@ -120,3 +120,61 @@ def test_backupbot_restarts_containers_after_backup(
             container.name for container in docker_client.containers.list(filters={"status": "running"})
         ]
         assert "bind_mount_service" in running_containers
+
+
+def test_update_file_versions_minor(tmp_path: Path) -> None:
+    backup_dirs = [tmp_path.joinpath("backup1"), tmp_path.joinpath("backup2")]
+    files = [
+        tmp_path.joinpath("backup1", "file.tar.gz"),
+        tmp_path.joinpath("backup1", "file-0-0.tar.gz"),
+        tmp_path.joinpath("backup2", "file.tar.gz"),
+    ]
+
+    for d in backup_dirs:
+        d.mkdir()
+    for file in files:
+        file.touch()
+
+    bub = BackupBot(
+        Path("unimportant"),
+        destination=tmp_path,
+        backup_config=Path("unimportant"),
+        adapter="docker-compose",
+        update_major=False,
+    )
+
+    bub.update_file_versions(created_files=files)
+
+    assert tmp_path.joinpath("backup1", "file-0-0.tar.gz").is_file()
+    assert tmp_path.joinpath("backup1", "file-0-1.tar.gz").is_file()
+
+    assert tmp_path.joinpath("backup2", "file-0-0.tar.gz").is_file()
+
+
+def test_update_file_versions_major(tmp_path: Path) -> None:
+    backup_dirs = [tmp_path.joinpath("backup1"), tmp_path.joinpath("backup2")]
+    files = [
+        tmp_path.joinpath("backup1", "file.tar.gz"),
+        tmp_path.joinpath("backup1", "file-0-0.tar.gz"),
+        tmp_path.joinpath("backup2", "file.tar.gz"),
+    ]
+
+    for d in backup_dirs:
+        d.mkdir()
+    for file in files:
+        file.touch()
+
+    bub = BackupBot(
+        Path("unimportant"),
+        destination=tmp_path,
+        backup_config=Path("unimportant"),
+        adapter="docker-compose",
+        update_major=True,
+    )
+
+    bub.update_file_versions(created_files=files)
+
+    assert tmp_path.joinpath("backup1", "file-0-0.tar.gz").is_file()
+    assert tmp_path.joinpath("backup1", "file-1-0.tar.gz").is_file()
+
+    assert tmp_path.joinpath("backup2", "file-0-0.tar.gz").is_file()

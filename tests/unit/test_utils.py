@@ -23,7 +23,7 @@ def test_match_files_finds_single_file(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "docker-compose.yaml").touch()
 
     result: List[Path] = []
-    match_files(tmp_path, "*.yaml", result)
+    match_files(tmp_path, ".yaml", result)
 
     assert result == [tmp_path.joinpath("services", "docker-compose.yaml")]
 
