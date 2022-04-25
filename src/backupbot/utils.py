@@ -152,4 +152,4 @@ def path_to_string(directory: Path, num_steps: int = -1, delim: str = "-") -> st
 
 
 def timestamp() -> str:
-    return datetime.now().strftime("%y-%m-%d-%H-%M-%S-%")
+    return datetime.now().strftime("%y-%m-%d-%H-%M-%S-%f")
