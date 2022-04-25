@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+    first_service:
+        container_name: service1
+        image: image1
+        hostname: hostname1
+        ports:
+            - 80:80
+            - 443:443
+        volumes:
+            # this is a comment
+            - ./service1_bind_mount1:/service1/bind_mount1/path
+            - service1_volume1:/service1/volume1/path
+            - service1_volume2:/service1/volume2/path
+    
+    second_service:
+        image: source/image
+        container_name: service2
+        hostname: hostname2
+        volumes:
+            - service2_volume1:/service2/volume1/path # with a comment
+            - service2_volume2:/service2/volume2/path
+            - ./service2_bind_mount1:/service2/bind_mount1/path
+            - ./service2_bind_mount2:/service2/bind_mount2/path
+
+networks:
+    - a_random_network

@@ -1,0 +1,47 @@
+{
+    "service1": [
+        {
+            "type": "bind_mount_backup",
+            "config": {
+                "bind_mounts": [
+                    "all"
+                ]
+            }
+        },
+        {
+            "type": "volume_backup",
+            "config": {
+                "volumes": [
+                    "service1_volume1",
+                    "service1_volume2"
+                ]
+            }
+        },
+        {
+            "type": "mysql_backup",
+            "config": {
+                "database": "test_database",
+                "user": "test_user",
+                "password": "test_password"
+            }
+        }
+    ],
+    "service2": [
+        {
+            "type": "volume_backup",
+            "config": {
+                "volumes": [
+                    "service2_volume2"
+                ]
+            }
+        },
+        {
+            "type": "bind_mount_backup",
+            "config": {
+                "bind_mounts": [
+                    "service2_mount3"
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+  bind_mount_service:
+    image: ubuntu:latest
+    container_name: bind_mount_service
+    hostname: bind_mount_service
+    command: sh -c "sleep infinity"
+    volumes:
+      - ./bind_mount:/tmp/bind_mount
+
+  volume_service:
+    image: ubuntu:latest
+    container_name: volume_service
+    hostname: volume_service
+    command: sh -c "sleep infinity"
+    volumes:
+      - test_volume:/tmp/volume
+
+  mysql_service:
+    image: mysql:latest
+    container_name: mysql_service
+    hostname: mysql_service
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password_42
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=user_password
+      - MYSQL_DATABASE=test_database
+
+
+volumes:
+  test_volume:
+    external: true

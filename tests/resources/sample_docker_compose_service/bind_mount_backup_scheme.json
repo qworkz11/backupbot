@@ -1,0 +1,12 @@
+{
+    "bind_mount_service": [
+        {
+            "type": "bind_mount_backup",
+            "config": {
+                "bind_mounts": [
+                    "all"
+                ]
+            }
+        }
+    ]
+}
