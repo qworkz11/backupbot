@@ -2,7 +2,10 @@ from pathlib import Path
 from subprocess import CompletedProcess, run
 from typing import Callable
 
+import pytest
 
+
+@pytest.mark.docker
 def test_backupbot_backs_up_bind_mounts(
     tmp_path: Path,
     running_docker_compose_project: Callable,

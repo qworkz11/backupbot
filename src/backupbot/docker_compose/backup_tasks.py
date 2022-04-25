@@ -55,7 +55,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
             for mount in backup_mounts:
                 string_path = path_to_string(mount.path, num_steps=1)
                 target_dir = backup_task_dir.joinpath(string_path)
-                tar_name = f"{string_path}-{timestamp()}"
+                tar_name = f"{timestamp()}-{string_path}"
 
                 if not target_dir.is_dir():
                     target_dir.mkdir(parents=False)

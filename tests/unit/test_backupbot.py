@@ -43,7 +43,7 @@ def raise_error(exception: Exception, msg: Optional[str] = None) -> None:
     raise exception(msg)
 
 
-def test_init_raises_error_when_cri_unknown() -> None:
+def test_init_raises_error_when_adapter_unknown() -> None:
     with pytest.raises(ValueError):
         BackupBot(Path("unimportant"), Path("unimportant"), Path("unimportant"), adapter="unknown_cri")
 
@@ -123,7 +123,7 @@ def test_backupbot_backs_up_docker_compose_bind_mount(
     assert len(list(bind_mount_dir.iterdir())) == 1
     assert bind_mount_dir.is_dir()
 
-    file = bind_mount_dir.joinpath("bind_mount-TIMESTAMP.tar.gz")
+    file = bind_mount_dir.joinpath("TIMESTAMP-bind_mount.tar.gz")
     assert len(list(bind_mount_dir.iterdir())) == 1
     assert file.is_file()
 

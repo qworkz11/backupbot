@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from backupbot.abstract.storage_info import AbstractStorageInfo
 
@@ -8,7 +8,7 @@ class AbstractBackupTask(ABC):
     @classmethod
     @property
     @abstractmethod
-    def target_dir_name(self) -> str:
+    def target_dir_name(self) -> Callable[[], str]:
         raise NotImplementedError
 
     @abstractmethod

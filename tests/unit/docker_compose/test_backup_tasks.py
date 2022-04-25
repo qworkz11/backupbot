@@ -68,8 +68,8 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(
     assert tar_file1_dir.is_dir()
     assert tar_file2_dir.is_dir()
 
-    tar_file1 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=1) + "-TIMESTAMP.tar.gz"
-    tar_file2 = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=1) + "-TIMESTAMP.tar.gz"
+    tar_file1 = f"TIMESTAMP-{path_to_string(dummy_bind_mount_dir.joinpath('bind_mount1'), num_steps=1)}.tar.gz"
+    tar_file2 = f"TIMESTAMP-{path_to_string(dummy_bind_mount_dir.joinpath('bind_mount2'), num_steps=1)}.tar.gz"
 
     tar_file1_file = tar_file1_dir.joinpath(tar_file1)
     tar_file2_file = tar_file2_dir.joinpath(tar_file2)
@@ -111,6 +111,7 @@ def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
     assert len(list(bind_mount_path.iterdir())) == 1
 
     tar_file = path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=1) + "-TIMESTAMP.tar.gz"
+    tar_file = f"TIMESTAMP-{path_to_string(dummy_bind_mount_dir.joinpath('bind_mount2'), num_steps=1)}.tar.gz"
 
     assert tar_file_dir.joinpath(tar_file).is_file()
 
