@@ -3,4 +3,4 @@ venv/
 **/__pycache__/
 .vscode
 .coverage
-planning.md
+./planning.md
