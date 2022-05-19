@@ -1,0 +1,12 @@
+{
+    "volume_service": [
+        {
+            "type": "volume_backup",
+            "config": {
+                "volumes": [
+                    "test_volume"
+                ]
+            }
+        }
+    ]
+}

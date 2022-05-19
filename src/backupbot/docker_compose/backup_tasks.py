@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from backupbot.abstract.backup_task import AbstractBackupTask
-from backupbot.data_structures import HostDirectory
+from backupbot.data_structures import HostDirectory, Volume
 from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.utils import path_to_string, tar_file_or_directory, timestamp
+from tempfile import TemporaryDirectory
+from backupbot.logger import logger
+from docker import from_env, DockerClient
+from shutil import copyfile
+
+from docker.errors import ContainerError
 
 
 class DockerBindMountBackupTask(AbstractBackupTask):
@@ -28,7 +34,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: List[DockerComposeService], backup_task_dir: Path) -> None:
+    def __call__(self, storage_info: List[DockerComposeService], backup_task_dir: Path) -> List[Path]:
         """Executes the bind mount backup task for docker-compose environments. Creates a sub-folder for each bind mount
         named after the bind mount (if necessary). The bind mount content is tar-compressed a single file.
 
@@ -95,15 +101,119 @@ class DockerVolumeBackupTask(AbstractBackupTask):
     target_dir_name: str = "volumes"
 
     def __init__(self, volumes: List[str], **kwargs: Dict):
+        """Constructor.
+
+        Args:
+            volumes (List[str]): Volume (names) to back up.
+
+        Raises:
+            NotImplementedError: When the class has no target_dir_name attribute.
+        """
         self.volumes = volumes
+        self._container_backup_bind_mount = Path("/backup")  # must be absolute!
+        self._docker_client: DockerClient = from_env()
 
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: Dict[str, Dict[str, List]], target_dir: Path) -> None:
-        pass
+    def __call__(self, storage_info: List[DockerComposeService], target_dir: Path) -> List[Path]:
+        """Executes the volume backup task for docker-compose environments.
+
+        Steps:
+        - for every container in storage_info:
+            - create a tar command to backup all volume mount points to /backup
+            - start a Ubuntu Docker container which mounts all volumes from the container as well as a temporary
+                directory under '/backup' and executes tar command
+        - created files in temporary directory are associated with their target file names
+        - copy all temporary files to target backup directory
+
+        Folder structure after the backup:
+
+                |-volume_backup
+                |   |-volumes
+                |   |   |-volume_name.tar.gz
+
+        Args:
+            storage_info (Dict[str, Dict[str, List]]): DockerComposeService instances containing containers to back up.
+            target_dir (Path): Final backup directory
+        """
+        # map temporary tar files to their target directory in host backup structure:
+        temp_target_mapping: Dict[Path, Path] = {}
+
+        with TemporaryDirectory() as tmp_dir_name:
+            tmp_dir = Path(tmp_dir_name)
+
+            for container in storage_info:
+                try:
+                    self._backup_volumes_from(container, tmp_dir, target_dir, temp_target_mapping)
+                except ContainerError as error:
+                    logger.error(f"Failed to backup volumes from container '{container.name}': {error}")
+                    continue
+
+            for target, tmp_source in temp_target_mapping.items():
+                copyfile(tmp_source, target)
+
+        return [backup_file for backup_file, _ in temp_target_mapping.items()]
+
+    def _backup_volumes_from(
+        self, container: DockerComposeService, tmp_dir: Path, target_dir: Path, temp_target_mapping: Dict[Path, Path]
+    ) -> None:
+        container_tmp_target_mapping, tar_commands = self._prepare_volume_backup(
+            container.volumes,
+            target_dir,
+            tmp_dir,
+        )
+        # bind mount the temporary path to '/backup' inside the container
+        self._docker_client.containers.run(
+            image="ubuntu:latest",
+            remove=True,
+            command=tar_commands,
+            volumes={str(tmp_dir): {"bind": str(self._container_backup_bind_mount.absolute()), "mode": "rw"}},
+            volumes_from=[container.name],
+        )
+
+        # when everything went alright
+        temp_target_mapping.update(container_tmp_target_mapping)
+
+    def _prepare_volume_backup(
+        self, volumes: List[Volume], target_dir: Path, tmp_directory: Path
+    ) -> Tuple[Dict[Path, Path], str]:
+        temp_target_mapping: Dict[Path, Path] = {}
+        tar_commands: List[str] = []
+
+        for volume in volumes:
+            volume_backup_dir = target_dir.joinpath(volume.name)
+            tar_file_name = f"{timestamp()}-{volume.name}.tar.gz"
+            tmp_tar_file = tmp_directory.joinpath(tar_file_name)
+            target_tar_file = volume_backup_dir.joinpath(tar_file_name)
+
+            if target_tar_file not in temp_target_mapping:
+                temp_target_mapping[target_tar_file] = tmp_tar_file
+            else:
+                logger.error(
+                    f"""Error while mapping temporary file '{tmp_tar_file}' to their final target: A mapping for"""
+                    f""" target '{target_tar_file}' already exists."""
+                )
+                continue
+
+            if not volume_backup_dir.exists():
+                volume_backup_dir.mkdir(parents=False)
+
+            tar_commands.append(
+                f"tar -czf {self._container_backup_bind_mount.joinpath(tar_file_name)} {volume.mount_point}"
+            )
+
+        return temp_target_mapping, " && ".join(tar_commands)
 
     def __eq__(self, o: object) -> bool:
+        """Checks for equality.
+
+        Args:
+            o (object): Object to compare against.
+
+        Returns:
+            bool: Whether or not the object is equal to this instance
+        """
         if not isinstance(o, type(self)):
             return False
 
@@ -113,6 +223,11 @@ class DockerVolumeBackupTask(AbstractBackupTask):
         return len(set(self.volumes).difference(set(o.volumes))) == 0
 
     def __repr__(self) -> str:
+        """String representation.
+
+        Returns:
+            str: String representation.
+        """
         return self.__class__.__qualname__ + f": {self.volumes}"
 
 

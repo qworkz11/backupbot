@@ -7,7 +7,6 @@ from typing import Dict, Generator, List, Optional
 
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
-from pydantic import BaseModel
 
 
 class BackupAdapter(ABC):
