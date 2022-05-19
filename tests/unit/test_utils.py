@@ -14,6 +14,7 @@ from backupbot.utils import (
     match_files,
     path_to_string,
     tar_file_or_directory,
+    copy_files,
 )
 
 
@@ -198,3 +199,23 @@ def test_path_to_string() -> None:
     assert path_to_string(Path("path/with/name/foo"), num_steps=-1) == "path-with-name-foo"
     assert path_to_string(Path("/path/with/name/foo"), num_steps=3) == "with-name-foo"
     assert path_to_string(Path("path/with/name/foo"), num_steps=2, delim="#") == "name#foo"
+
+
+def test_copy_files(tmp_path: Path) -> None:
+    source = tmp_path.joinpath("source")
+    target_file = tmp_path.joinpath("target_file")
+    target_zip = tmp_path.joinpath("target_zip")
+
+    source.mkdir()
+    target_file.mkdir()
+    target_zip.mkdir()
+
+    file = source.joinpath("file.txt")
+    zip_dir = source.joinpath("zip.zip")
+    file.touch()
+    zip_dir.touch()
+
+    copy_files({target_file.joinpath("file.txt"): file, target_zip.joinpath("zip.zip"): zip_dir})
+
+    assert target_file.joinpath("file.txt").is_file()
+    assert target_zip.joinpath("zip.zip").is_file()

@@ -6,6 +6,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+from shutil import copyfile
 
 from yaml import Loader, load
 
@@ -153,3 +154,13 @@ def path_to_string(directory: Path, num_steps: int = -1, delim: str = "-") -> st
 
 def timestamp() -> str:
     return datetime.now().strftime("%y-%m-%d-%H-%M-%S-%f")
+
+
+def copy_files(dest_source_mapping: Dict[Path, Path]) -> None:
+    """Copies files following the specified mapping.
+
+    Args:
+        dest_source_mapping (Dict[Path, Path]): A dictionary of format destination->source.
+    """
+    for destination_directory, source_file in dest_source_mapping.items():
+        copyfile(source_file, destination_directory)
