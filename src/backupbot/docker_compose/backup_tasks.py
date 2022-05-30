@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.data_structures import HostDirectory, Volume
+from backupbot.docker_compose.container_utils import BackupItem
 from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.utils import path_to_string, tar_file_or_directory, timestamp
 from tempfile import TemporaryDirectory
 from backupbot.logger import logger
 from docker import from_env, DockerClient
 from shutil import copyfile
+from backupbot.docker_compose.container_utils import shell_backup
 
 from docker.errors import ContainerError
 
@@ -98,6 +100,8 @@ class DockerBindMountBackupTask(AbstractBackupTask):
 
 
 class DockerVolumeBackupTask(AbstractBackupTask):
+    """Class which represents a docker-compose volume backup task."""
+
     target_dir_name: str = "volumes"
 
     def __init__(self, volumes: List[str], **kwargs: Dict):
@@ -137,73 +141,52 @@ class DockerVolumeBackupTask(AbstractBackupTask):
             storage_info (Dict[str, Dict[str, List]]): DockerComposeService instances containing containers to back up.
             target_dir (Path): Final backup directory
         """
-        # map temporary tar files to their target directory in host backup structure:
-        temp_target_mapping: Dict[Path, Path] = {}
+        backup_files: List[Path] = []
 
         with TemporaryDirectory() as tmp_dir_name:
             tmp_dir = Path(tmp_dir_name)
 
-            for container in storage_info:
-                try:
-                    self._backup_volumes_from(container, tmp_dir, target_dir, temp_target_mapping)
-                except ContainerError as error:
-                    logger.error(f"Failed to backup volumes from container '{container.name}': {error}")
-                    continue
+            for service in storage_info:
+                volume_backup_items = self._prepare_volume_backup(service.volumes, target_dir, tmp_dir)
 
-            for target, tmp_source in temp_target_mapping.items():
-                copyfile(tmp_source, target)
+                backup_mapping = shell_backup(
+                    self._docker_client,
+                    "ubuntu:latest",
+                    bind_mount_dir=tmp_dir,
+                    container_to_backup=service.name,
+                    backup_items=volume_backup_items,
+                )
 
-        return [backup_file for backup_file, _ in temp_target_mapping.items()]
+                for target, tmp_source in backup_mapping.items():
+                    if tmp_source is None:
+                        logger.error(f"Failed to backup '{target.name}' of service '{service.name}'.")
+                        continue
+                    copyfile(tmp_source, target)
+                    backup_files.append(target)
 
-    def _backup_volumes_from(
-        self, container: DockerComposeService, tmp_dir: Path, target_dir: Path, temp_target_mapping: Dict[Path, Path]
-    ) -> None:
-        container_tmp_target_mapping, tar_commands = self._prepare_volume_backup(
-            container.volumes,
-            target_dir,
-            tmp_dir,
-        )
-        # bind mount the temporary path to '/backup' inside the container
-        self._docker_client.containers.run(
-            image="ubuntu:latest",
-            remove=True,
-            command=tar_commands,
-            volumes={str(tmp_dir): {"bind": str(self._container_backup_bind_mount.absolute()), "mode": "rw"}},
-            volumes_from=[container.name],
-        )
-
-        # when everything went alright
-        temp_target_mapping.update(container_tmp_target_mapping)
+        return backup_files
 
     def _prepare_volume_backup(
         self, volumes: List[Volume], target_dir: Path, tmp_directory: Path
     ) -> Tuple[Dict[Path, Path], str]:
-        temp_target_mapping: Dict[Path, Path] = {}
-        tar_commands: List[str] = []
+        backup_items: List[BackupItem] = []
 
         for volume in volumes:
             volume_backup_dir = target_dir.joinpath(volume.name)
             tar_file_name = f"{timestamp()}-{volume.name}.tar.gz"
-            tmp_tar_file = tmp_directory.joinpath(tar_file_name)
-            target_tar_file = volume_backup_dir.joinpath(tar_file_name)
-
-            if target_tar_file not in temp_target_mapping:
-                temp_target_mapping[target_tar_file] = tmp_tar_file
-            else:
-                logger.error(
-                    f"""Error while mapping temporary file '{tmp_tar_file}' to their final target: A mapping for"""
-                    f""" target '{target_tar_file}' already exists."""
-                )
-                continue
 
             if not volume_backup_dir.exists():
                 volume_backup_dir.mkdir(parents=False)
 
-            tar_commands.append(
-                f"tar -czf {self._container_backup_bind_mount.joinpath(tar_file_name)} {volume.mount_point}"
+            item = BackupItem(
+                command=f"tar -czf {self._container_backup_bind_mount.joinpath(tar_file_name)} {volume.mount_point}",
+                file_name=tar_file_name,
+                final_path=volume_backup_dir,
             )
 
-        return temp_target_mapping, " && ".join(tar_commands)
+            backup_items.append(item)
+
+        return backup_items
 
     def __eq__(self, o: object) -> bool:
         """Checks for equality.
@@ -243,6 +226,14 @@ class DockerMySQLBackupTask(AbstractBackupTask):
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
     def __call__(self, storage_info: Dict[str, Dict[str, List]], target_dir: Path) -> None:
+        """
+        use DockerComposeBackupTask._backup_volumes_from() and make it more general: Pass command to execute as argument
+        and return dictionary of files to copy
+
+        Args:
+            storage_info (Dict[str, Dict[str, List]]): _description_
+            target_dir (Path): _description_
+        """
         pass
 
     def __eq__(self, o: object) -> bool:

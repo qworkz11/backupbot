@@ -19,6 +19,8 @@ from backupbot.data_structures import Volume
 from pytest import LogCaptureFixture
 import logging
 
+from backupbot.docker_compose.container_utils import BackupItem
+
 
 def test_docker_bind_mount_backup_has_accessible_target_dir_name() -> None:
     backup_task: AbstractBackupTask = create_dummy_task("dir_name")
@@ -156,60 +158,24 @@ def test_docker_volume_backup_task_prepare_volume_backup(tmp_path: Path, monkeyp
 
     backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
 
-    container_tmp_mapping, tar_commands = backup_task._prepare_volume_backup(
-        volumes, target_dir=target_dir, tmp_directory=temp_dir
-    )
+    backup_items = backup_task._prepare_volume_backup(volumes, target_dir=target_dir, tmp_directory=temp_dir)
 
-    assert container_tmp_mapping == {
-        target_dir.joinpath("volume1", "TIMESTAMP-volume1.tar.gz"): temp_dir.joinpath("TIMESTAMP-volume1.tar.gz"),
-        target_dir.joinpath("volume2", "TIMESTAMP-volume2.tar.gz"): temp_dir.joinpath("TIMESTAMP-volume2.tar.gz"),
-    }
+    assert backup_items == [
+        BackupItem(
+            command="tar -czf /backup/TIMESTAMP-volume1.tar.gz mount1",
+            file_name="TIMESTAMP-volume1.tar.gz",
+            final_path=target_dir.joinpath("volume1"),
+        ),
+        BackupItem(
+            command="tar -czf /backup/TIMESTAMP-volume2.tar.gz mount2",
+            file_name="TIMESTAMP-volume2.tar.gz",
+            final_path=target_dir.joinpath("volume2"),
+        ),
+    ]
 
     assert target_dir.joinpath("volume1").is_dir()
     assert target_dir.joinpath("volume2").is_dir()
     assert len(list(target_dir.iterdir())) == 2
-
-    assert (
-        tar_commands
-        == "tar -czf /backup/TIMESTAMP-volume1.tar.gz mount1 && tar -czf /backup/TIMESTAMP-volume2.tar.gz mount2"
-    )
-
-
-def test_docker_volume_backup_task_prepare_volume_backup_only_adds_volume_once(
-    tmp_path: Path, caplog: LogCaptureFixture, monkeypatch: MonkeyPatch
-) -> None:
-    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
-
-    target_dir = tmp_path.joinpath("target_dir")
-    temp_dir = tmp_path.joinpath("temp_dir")
-
-    target_dir.mkdir()
-    temp_dir.mkdir()
-
-    volumes = [Volume("volume1", Path("mount1")), Volume("volume1", Path("mount1"))]
-
-    backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
-
-    container_tmp_mapping, tar_commands = backup_task._prepare_volume_backup(
-        volumes, target_dir=target_dir, tmp_directory=temp_dir
-    )
-
-    assert container_tmp_mapping == {
-        target_dir.joinpath("volume1", "TIMESTAMP-volume1.tar.gz"): temp_dir.joinpath("TIMESTAMP-volume1.tar.gz")
-    }
-    assert len(list(target_dir.iterdir())) == 1
-
-    assert tar_commands == "tar -czf /backup/TIMESTAMP-volume1.tar.gz mount1"
-
-    assert (
-        "backupbot.logger",
-        logging.ERROR,
-        (
-            f"""Error while mapping temporary file '{temp_dir.joinpath('TIMESTAMP-volume1.tar.gz')}' to their final"""
-            f""" target: A mapping for target '{target_dir.joinpath('volume1', 'TIMESTAMP-volume1.tar.gz')}' already"""
-            """ exists."""
-        ),
-    ) in caplog.record_tuples
 
 
 def test_docker_volume_backup_call_creates_tar_files_in_temporary_directory(
@@ -266,10 +232,7 @@ def test_docker_volume_backup_call_with_failing_docker_container(
     monkeypatch.setattr(
         backupbot.docker_compose.backup_tasks.DockerVolumeBackupTask,
         "_prepare_volume_backup",
-        lambda *_: (
-            {},
-            failing_tar_command,
-        ),
+        lambda *_: [BackupItem(failing_tar_command, Path("test_volume.tar.gz"), Path("/"))],
     )
 
     volumes = [Volume("test_volume", Path("tmp/volume"))]
@@ -291,4 +254,4 @@ def test_docker_volume_backup_call_with_failing_docker_container(
 
     log_msg = caplog.record_tuples[0][2]
 
-    assert "Failed to backup volumes from container 'volume_service':" in log_msg
+    assert "Failed to backup 'test_volume.tar.gz' of service 'volume_service'." in log_msg
