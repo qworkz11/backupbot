@@ -23,3 +23,13 @@ def create_dummy_task(name: str) -> AbstractBackupTask:
             pass
 
     return DummyBackupTask()
+
+
+class Containers:
+    def run(self, *args, **kwargs) -> None:
+        pass
+
+
+class DummyDockerClient:
+    def __init__(self) -> None:
+        containers = Containers()

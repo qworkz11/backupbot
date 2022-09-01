@@ -10,15 +10,16 @@ from docker import DockerClient
 from docker.errors import ContainerError
 from typing import List, Dict, Union
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from backupbot.logger import logger
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class BackupItem:
-    command: str
-    file_name: str
-    final_path: Path
+    # make sure this class is hashable so that it can be used as a dictionary key
+    command: str = field(hash=False)
+    file_name: str = field(hash=True)
+    final_path: Path = field(hash=True)
 
 
 @contextmanager
@@ -91,7 +92,7 @@ def shell_backup(
     bind_mount_dir: Path,
     container_to_backup: str,
     backup_items: List[BackupItem],
-) -> Dict[Path, Union[Path, None]]:
+) -> Dict[BackupItem, Union[Path, None]]:
     """Runs the shell command specified in the BackupItem instance on the specified container. Returns a dictionary
     mapping the target file name of a backup to its temporary file in the bind_mount directory.
 
@@ -107,7 +108,7 @@ def shell_backup(
         backup_items (List[BackupItem]): BackupItem instances specifying the command to run for the backup, the backup
             file name and the target directory for the backup on the host.
     """
-    target_temp_mapping: Dict[Path, Path] = {}
+    backup_temporary_file_mapping: Dict[BackupItem, Union[Path, None]] = {}  # key: backup item; value: temporary file
 
     for backup_item in backup_items:
         try:
@@ -122,12 +123,12 @@ def shell_backup(
         except ContainerError as _:
             mapping = None
 
-        if not backup_item.final_path in target_temp_mapping:
-            target_temp_mapping[backup_item.final_path.joinpath(backup_item.file_name)] = mapping
+        if not backup_item.final_path in backup_temporary_file_mapping:
+            backup_temporary_file_mapping[backup_item] = mapping
         else:
             logger.error(
-                f"""Error while mapping a temporary file '{mapping}' to final file '{backup_item.final_path}': A"""
-                """ mapping already exists."""
+                f"""Error while mapping backup item '{backup_item}' to temporary file '{mapping}': A"""
+                f""" mapping already exists for this backup item ('{backup_temporary_file_mapping[backup_item]}')."""
             )
 
-    return target_temp_mapping
+    return backup_temporary_file_mapping

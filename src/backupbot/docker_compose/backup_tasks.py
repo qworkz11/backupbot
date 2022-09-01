@@ -157,12 +157,18 @@ class DockerVolumeBackupTask(AbstractBackupTask):
                     backup_items=volume_backup_items,
                 )
 
-                for target, tmp_source in backup_mapping.items():
+                for backup_item, tmp_source in backup_mapping.items():
+                    final_path = backup_item.final_path.joinpath(backup_item.file_name)
+
                     if tmp_source is None:
-                        logger.error(f"Failed to backup '{target.name}' of service '{service.name}'.")
+                        logger.error(
+                            f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
+                            f""" file '{final_path}' was not created as a result."""
+                        )
                         continue
-                    copyfile(tmp_source, target)
-                    backup_files.append(target)
+
+                    copyfile(tmp_source, final_path)
+                    backup_files.append(final_path)
 
         return backup_files
 
@@ -222,6 +228,8 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         self.user = user
         self.password = password
 
+        self._docker_client = from_env()
+
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
@@ -230,11 +238,44 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         use DockerComposeBackupTask._backup_volumes_from() and make it more general: Pass command to execute as argument
         and return dictionary of files to copy
 
+        Command: mysqldump --password=<pw> --user=<user> <database name> > file.sql
+
         Args:
             storage_info (Dict[str, Dict[str, List]]): _description_
             target_dir (Path): _description_
         """
-        pass
+        backup_files: List[Path] = []
+
+        with TemporaryDirectory() as tmp_dir_name:
+            tmp_dir = Path(tmp_dir_name)
+
+            for service in storage_info:
+                volume_backup_items = self._prepare_mysql_backup(service.volumes, target_dir, tmp_dir)
+
+                backup_mapping = shell_backup(
+                    self._docker_client,
+                    "ubuntu:latest",
+                    bind_mount_dir=tmp_dir,
+                    container_to_backup=service.name,
+                    backup_items=volume_backup_items,
+                )
+
+                for backup_item, tmp_source in backup_mapping.items():
+                    final_path = backup_item.final_path.joinpath(backup_item.file_name)
+
+                    if tmp_source is None:
+                        logger.error(
+                            f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
+                            f""" file '{final_path}' was not created as a result."""
+                        )
+                        continue
+
+                    copyfile(tmp_source, final_path)
+                    backup_files.append(final_path)
+
+        return backup_files
+
+    def _prepare_mysql_backup(self, )
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, type(self)):

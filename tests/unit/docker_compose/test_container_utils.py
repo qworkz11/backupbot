@@ -11,6 +11,8 @@ from backupbot.docker_compose.container_utils import (
 
 from docker import DockerClient
 
+from tests.utils.dummies import DummyDockerClient
+
 
 def test_stop_and_restart_container(docker_client: DockerClient):
     container_name = "sleeping_ubuntu"
@@ -100,3 +102,6 @@ def test_docker_compose_down_raises_error_for_invalid_compose_file() -> None:
 
     with pytest.raises(RuntimeError):
         docker_compose_down(Path("not/existing.yaml"))
+
+
+# def test

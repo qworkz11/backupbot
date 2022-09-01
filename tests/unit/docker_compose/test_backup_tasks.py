@@ -254,4 +254,7 @@ def test_docker_volume_backup_call_with_failing_docker_container(
 
     log_msg = caplog.record_tuples[0][2]
 
-    assert "Failed to backup 'test_volume.tar.gz' of service 'volume_service'." in log_msg
+    assert (
+        """Backup command 'tar -czf file.tar.gz /non/existing/directory' failed on service 'volume_service'. Backup"""
+        """ file '/test_volume.tar.gz' was not created as a result.""" in log_msg
+    )
