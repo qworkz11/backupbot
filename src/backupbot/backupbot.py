@@ -45,7 +45,7 @@ class BackupBot:
             raise ValueError(f"Unknown backup adapter: '{adapter}'.")
 
     def create_service_backup_structure(
-        self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
+        self, storage_info: Dict[str, AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
     ) -> None:
         """Creates the backup folder structure for all services and backup tasks specified if necessary.
 
@@ -62,7 +62,7 @@ class BackupBot:
             storage_info (List[AbstractStorageInfo]): Storage info.
             backup_tasks (Dict[str, List[AbstractBackupTask]]): Backup tasks.
         """
-        for service in storage_info:
+        for service in storage_info.values():
             if service.name in backup_tasks:
                 dir_names = [type(task).target_dir_name for task in backup_tasks[service.name]]
                 dir_names_unique = set(dir_names)
@@ -101,12 +101,17 @@ class BackupBot:
         """
         try:
             storage_files = self.backup_adapter.discover_config_files(self.root)
+            logger.info(f"Found {len(storage_files)} storage file(s).")
+            logger.debug(f"Storage files: {storage_files}")
         except RuntimeError as error:
             logger.error(f"Failed to locate config files in '{self.root}': '{error.message}'.")
             raise RuntimeError from error
 
         try:
-            storage_info: List[AbstractStorageInfo] = self.backup_adapter.parse_storage_info(storage_files, self.root)
+            storage_info: Dict[str, AbstractStorageInfo] = self.backup_adapter.parse_storage_info(
+                storage_files, self.root
+            )
+            logger.info(f"Parsed storage info: {[info.name for info in storage_info.values()]}")
         except RuntimeError as error:
             logger.error(f"Failed to parse config files '{storage_files}': '{error.message}'.")
             raise RuntimeError from error
@@ -135,15 +140,20 @@ class BackupBot:
 
     def _run_backup_tasks(
         self,
-        storage_info: List[AbstractStorageInfo],
+        storage_info: Dict[str, AbstractStorageInfo],
         backup_tasks: Dict[str, List[AbstractBackupTask]],
     ) -> List[Path]:
         created_files = []
         for service_name, tasks in backup_tasks.items():
+            logger.info(f"Running {len(tasks)} backup task(s) for service '{service_name}'...")
             for task in tasks:
                 try:
-                    task_files = task(storage_info, self.destination.joinpath(service_name, type(task).target_dir_name))
+                    logger.info(f"Running '{task.__class__.__qualname__}' for service '{service_name}'...")
+                    task_files = task(
+                        storage_info[service_name], self.destination.joinpath(service_name, type(task).target_dir_name)
+                    )
                     created_files.extend(task_files)
+                    logger.info(f"Finished '{task.__class__.__qualname__}': {created_files}")
                 except NotImplementedError as task_init_error:
                     logger.error(f"Failed to execute backup task '{task}': '{task_init_error}'.")
                 except NotADirectoryError as dir_error:
@@ -151,4 +161,5 @@ class BackupBot:
                 except RuntimeError as runtime_error:
                     logger.error(f"Failed to execute backup task '{task}': '{runtime_error}'.")
 
-            return created_files
+            logger.info(f"Finished backup of service '{service_name}'.")
+        return created_files

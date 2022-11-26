@@ -1,0 +1,32 @@
+{
+    "bind_mount_service": [
+        {
+            "type": "bind_mount_backup",
+            "config": {
+                "bind_mounts": [
+                    "all"
+                ]
+            }
+        }
+    ],
+    "volume_service": [
+        {
+            "type": "volume_backup",
+            "config": {
+                "volumes": [
+                    "test_volume"
+                ]
+            }
+        }
+    ],
+    "mysql_service": [
+        {
+            "type": "mysql_backup",
+            "config": {
+                "database": "test_database",
+                "user": "root",
+                "password": "root_password_42"
+            }
+        }
+    ]
+}

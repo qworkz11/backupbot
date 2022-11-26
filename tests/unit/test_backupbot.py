@@ -28,7 +28,7 @@ class RaisingBackupTask(AbstractBackupTask):
         pass
 
     def __call__(
-        self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
+        self, storage_info: Dict[str, AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
     ) -> None:
         pass
 
@@ -51,10 +51,10 @@ def test_init_raises_error_when_adapter_unknown() -> None:
 def test_create_service_backup_structure(tmp_path: Path) -> None:
     bub = BackupBot(root=Path("unimportant"), destination=tmp_path, backup_config=Path("unimportant"))
 
-    storage_info = [
-        DummyStorageInfo("service1", "some_value"),
-        DummyStorageInfo("service2", "some_value"),
-    ]
+    storage_info = {
+        "service1": DummyStorageInfo("service1", "some_value"),
+        "service2": DummyStorageInfo("service2", "some_value"),
+    }
     backup_tasks = {
         "service1": [create_dummy_task("dummy_task1"), create_dummy_task("dummy_task2")],
         "service2": [create_dummy_task("dummy_task3")],
@@ -78,10 +78,10 @@ def test_create_service_backup_structure(tmp_path: Path) -> None:
 def test_create_service_backup_structure_creates_directories_only_when_specified_in_config_file(tmp_path: Path) -> None:
     bub = BackupBot(root=Path("unimportant"), destination=tmp_path, backup_config=Path("unimportant"))
 
-    storage_info = [
-        DummyStorageInfo("service1", "some_value"),
-        DummyStorageInfo("service2", "some_value"),
-    ]
+    storage_info = {
+        "service1": DummyStorageInfo("service1", "some_value"),
+        "service2": DummyStorageInfo("service2", "some_value"),
+    }
     backup_tasks = {"service1": [create_dummy_task("dummy_task1")]}
 
     bub.create_service_backup_structure(storage_info=storage_info, backup_tasks=backup_tasks)
@@ -153,23 +153,6 @@ def test_backupbot_restarts_containers_after_backup(
         assert "bind_mount_service" in running_containers
 
 
-def test_run_backup_tasks_logs_not_implemented_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
-    bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
-    monkeypatch.setattr(
-        RaisingBackupTask, "__call__", lambda *_, **__: raise_error(NotImplementedError, "not implemented error")
-    )
-
-    backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
-
-    bub._run_backup_tasks({"unimportant_service": []}, backup_tasks)
-
-    assert (
-        "backupbot.logger",
-        ERROR,
-        "Failed to execute backup task 'RaisingBackupTask': 'not implemented error'.",
-    ) in caplog.record_tuples
-
-
 def test_run_backup_tasks_logs_not_a_directory_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
     bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
     monkeypatch.setattr(
@@ -178,7 +161,7 @@ def test_run_backup_tasks_logs_not_a_directory_error(caplog: LogCaptureFixture, 
 
     backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
 
-    bub._run_backup_tasks({"unimportant_service": []}, backup_tasks)
+    bub._run_backup_tasks({"service_name": []}, backup_tasks)
 
     assert (
         "backupbot.logger",
@@ -193,7 +176,7 @@ def test_run_backup_tasks_logs_runtime_error(caplog: LogCaptureFixture, monkeypa
 
     backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
 
-    bub._run_backup_tasks({"unimportant_service": []}, backup_tasks)
+    bub._run_backup_tasks({"service_name": []}, backup_tasks)
 
     assert (
         "backupbot.logger",

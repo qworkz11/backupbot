@@ -18,7 +18,7 @@ def create_dummy_task(name: str) -> AbstractBackupTask:
             return "DummyBackupTask"
 
         def __call__(
-            self, storage_info: List[AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
+            self, storage_info: Dict[str, AbstractStorageInfo], backup_tasks: Dict[str, List[AbstractBackupTask]]
         ) -> None:
             pass
 

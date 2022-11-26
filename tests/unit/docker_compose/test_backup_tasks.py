@@ -17,7 +17,7 @@ from pytest import MonkeyPatch
 from tests.utils.dummies import create_dummy_task
 from backupbot.data_structures import Volume
 from pytest import LogCaptureFixture
-import logging
+
 from backupbot.docker_compose.container_utils import stop_and_restart_container
 
 from backupbot.docker_compose.container_utils import BackupItem
@@ -46,19 +46,17 @@ def test_docker_bind_mount_backup_task_raises_error_when_unknown_attributes_are_
 def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(
     tmp_path: Path, dummy_bind_mount_dir: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    storage_info: List[DockerComposeService] = [
-        DockerComposeService(
-            name="service1",
-            container_name="service1",
-            image="some_image",
-            hostname="service1",
-            bind_mounts=[
-                HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
-                HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
-            ],
-            volumes=[],
-        )
-    ]
+    service = DockerComposeService(
+        name="service1",
+        container_name="service1",
+        image="some_image",
+        hostname="service1",
+        bind_mounts=[
+            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
+            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
+        ],
+        volumes=[],
+    )
 
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
 
@@ -67,7 +65,7 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(
 
     backup_task = DockerBindMountBackupTask(bind_mounts=["all"])
 
-    tar_files = backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
+    tar_files = backup_task(service=service, backup_task_dir=bind_mount_path)
 
     tar_file1_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount1"), num_steps=1))
     tar_file2_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=1))
@@ -90,19 +88,17 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(
 def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
     tmp_path: Path, dummy_bind_mount_dir: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    storage_info: List[DockerComposeService] = [
-        DockerComposeService(
-            name="service1",
-            container_name="service1",
-            image="some_image",
-            hostname="service1",
-            bind_mounts=[
-                HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
-                HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
-            ],
-            volumes=[],
-        )
-    ]
+    service = DockerComposeService(
+        name="service1",
+        container_name="service1",
+        image="some_image",
+        hostname="service1",
+        bind_mounts=[
+            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
+            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
+        ],
+        volumes=[],
+    )
 
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
 
@@ -110,7 +106,7 @@ def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
     bind_mount_path.mkdir(parents=True)
 
     backup_task = DockerBindMountBackupTask(bind_mounts=["bind_mount2"])
-    backup_task(storage_info=storage_info, backup_task_dir=bind_mount_path)
+    backup_task(service=service, backup_task_dir=bind_mount_path)
 
     tar_file_dir = bind_mount_path.joinpath(path_to_string(dummy_bind_mount_dir.joinpath("bind_mount2"), num_steps=1))
 
@@ -200,20 +196,18 @@ def test_docker_volume_backup_call_creates_tar_files_in_temporary_directory(
 
     volumes = [Volume("test_volume", Path("tmp/volume"))]
 
-    storage_info = [
-        DockerComposeService(
-            name="volume_service",
-            container_name="volume_service",
-            image="ubuntu:latest",
-            hostname="volume_service",
-            volumes=volumes,
-            bind_mounts=[],
-        )
-    ]
+    service = DockerComposeService(
+        name="volume_service",
+        container_name="volume_service",
+        image="ubuntu:latest",
+        hostname="volume_service",
+        volumes=volumes,
+        bind_mounts=[],
+    )
     backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
 
     with running_docker_compose_project(sample_docker_compose_project_dir.joinpath("docker-compose.yaml")) as _:
-        created_files = backup_task(storage_info, target_dir)
+        created_files = backup_task(service=service, target_dir=target_dir)
 
     assert temporary_directory.joinpath("TIMESTAMP-test_volume.tar.gz").is_file()
     assert len(list(temporary_directory.iterdir())) == 1
@@ -238,20 +232,19 @@ def test_docker_volume_backup_call_with_failing_docker_container(
 
     volumes = [Volume("test_volume", Path("tmp/volume"))]
 
-    storage_info = [
-        DockerComposeService(
-            name="volume_service",
-            container_name="volume_service",
-            image="ubuntu:latest",
-            hostname="volume_service",
-            volumes=volumes,
-            bind_mounts=[],
-        )
-    ]
+    service = DockerComposeService(
+        name="volume_service",
+        container_name="volume_service",
+        image="ubuntu:latest",
+        hostname="volume_service",
+        volumes=volumes,
+        bind_mounts=[],
+    )
+
     backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
 
     with running_docker_compose_project(sample_docker_compose_project_dir.joinpath("docker-compose.yaml")) as _:
-        backup_task(storage_info, tmp_path)
+        backup_task(service=service, target_dir=tmp_path)
 
     log_msg = caplog.record_tuples[1][2]
 
@@ -280,22 +273,20 @@ def test_docker_mysql_backup_task_backs_up_mysql_contents(
     target_dir = tmp_path.joinpath("target")
     target_dir.mkdir()
 
-    storage_info = [
-        DockerComposeService(
-            name="mysql_service",
-            container_name="mysql_service",
-            image="ubuntu:latest",
-            hostname="mysql_service",
-            volumes=[],
-            bind_mounts=[],
-        )
-    ]
+    service = DockerComposeService(
+        name="mysql_service",
+        container_name="mysql_service",
+        image="ubuntu:latest",
+        hostname="mysql_service",
+        volumes=[],
+        bind_mounts=[],
+    )
 
     backup_task = DockerMySQLBackupTask(database="test_database", user="root", password="root_password_42")
 
     with running_docker_compose_project(sample_docker_compose_project_dir.joinpath("docker-compose.yaml")) as _:
         with stop_and_restart_container(client=backup_task._docker_client, container_name="mysql_service"):
-            created_files = backup_task(storage_info, target_dir)
+            created_files = backup_task(service=service, target_dir=target_dir)
 
     dump_file = temporary_directory.joinpath("TIMESTAMP-test_database.sql")
     assert dump_file.is_file()

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List
+from typing import Callable, List
+from pathlib import Path
 
 from backupbot.abstract.storage_info import AbstractStorageInfo
 
@@ -12,7 +13,7 @@ class AbstractBackupTask(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def __call__(self, storage_info: List[AbstractStorageInfo]) -> None:
+    def __call__(self, storage_info: AbstractStorageInfo) -> List[Path]:
         ...
 
     @abstractmethod

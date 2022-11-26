@@ -76,7 +76,7 @@ class DockerComposeBackupAdapter(BackupAdapter):
         return backup_scheme
 
     @contextmanager
-    def stopped_system(self, storage_info: List[DockerComposeService] = None) -> Generator:
+    def stopped_system(self, storage_info: Dict[str, DockerComposeService] = None) -> Generator:
         """Context manager which stops and restarts the docker-compose system if it is running.
 
         Note: The system is considered running if any container is running.
@@ -87,11 +87,10 @@ class DockerComposeBackupAdapter(BackupAdapter):
         Yields:
             Generator: Yields when the system is down.
         """
-        container_names = [service.container_name for service in storage_info]
         running_containers = [
             container.name for container in self.docker_client.containers.list(filters={"status": "running"})
         ]
-        system_running = any([name in running_containers for name in container_names])
+        system_running = any([name in running_containers for name in storage_info.keys()])
 
         docker_compose_stop(self.config_files[0])  # in case some of the containers were running
 
@@ -112,7 +111,7 @@ class DockerComposeBackupAdapter(BackupAdapter):
         if not "services" in compose_content.keys():
             raise RuntimeError("Failed to parse docker-compose.yaml: File has no 'services' key.")
 
-        services: List[DockerComposeService] = []
+        services: Dict[str, DockerComposeService] = {}
 
         for service_name, service_attributes in compose_content["services"].items():
             service = DockerComposeService(
@@ -140,7 +139,7 @@ class DockerComposeBackupAdapter(BackupAdapter):
                     else:
                         service.volumes.append(Volume(name, Path(mount_point)))
 
-            services.append(service)
+            services[service_name] = service
 
         return services
 

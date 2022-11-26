@@ -36,7 +36,7 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: List[DockerComposeService], backup_task_dir: Path) -> List[Path]:
+    def __call__(self, service: DockerComposeService, backup_task_dir: Path) -> List[Path]:
         """Executes the bind mount backup task for docker-compose environments. Creates a sub-folder for each bind mount
         named after the bind mount (if necessary). The bind mount content is tar-compressed a single file.
 
@@ -50,26 +50,26 @@ class DockerBindMountBackupTask(AbstractBackupTask):
             storage_info (List[DockerComposeService]): Docker-compose storage info.
             backup_task_dir (Path): Destination directory.
         """
+        if self.bind_mounts == ["all"]:
+            backup_mounts: List[HostDirectory] = service.bind_mounts
+        else:
+            backup_mounts: List[HostDirectory] = [
+                host_dir
+                for host_dir in service.bind_mounts
+                if any([host_dir.path.match(bind_mount) for bind_mount in self.bind_mounts])
+            ]
+
         created_files: List[Path] = []
-        for service in storage_info:
-            if self.bind_mounts == ["all"]:
-                backup_mounts: List[HostDirectory] = service.bind_mounts
-            else:
-                backup_mounts: List[HostDirectory] = [
-                    host_dir
-                    for host_dir in service.bind_mounts
-                    if any([host_dir.path.match(bind_mount) for bind_mount in self.bind_mounts])
-                ]
-            for mount in backup_mounts:
-                string_path = path_to_string(mount.path, num_steps=1)
-                target_dir = backup_task_dir.joinpath(string_path)
-                tar_name = f"{timestamp()}-{string_path}"
+        for mount in backup_mounts:
+            string_path = path_to_string(mount.path, num_steps=1)
+            target_dir = backup_task_dir.joinpath(string_path)
+            tar_name = f"{timestamp()}-{string_path}"
 
-                if not target_dir.is_dir():
-                    target_dir.mkdir(parents=False)
+            if not target_dir.is_dir():
+                target_dir.mkdir(parents=False)
 
-                tar_file = tar_file_or_directory(mount.path, tar_name, target_dir)
-                created_files.append(tar_file)
+            tar_file = tar_file_or_directory(mount.path, tar_name, target_dir)
+            created_files.append(tar_file)
 
         return created_files
 
@@ -120,7 +120,7 @@ class DockerVolumeBackupTask(AbstractBackupTask):
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: List[DockerComposeService], target_dir: Path) -> List[Path]:
+    def __call__(self, service: DockerComposeService, target_dir: Path) -> List[Path]:
         """Executes the volume backup task for docker-compose environments.
 
         Steps:
@@ -146,29 +146,28 @@ class DockerVolumeBackupTask(AbstractBackupTask):
         with TemporaryDirectory() as tmp_dir_name:
             tmp_dir = Path(tmp_dir_name)
 
-            for service in storage_info:
-                volume_backup_items = self._prepare_volume_backup(service.volumes, target_dir, tmp_dir)
+            volume_backup_items = self._prepare_volume_backup(service.volumes, target_dir, tmp_dir)
 
-                backup_mapping = shell_backup(
-                    self._docker_client,
-                    "ubuntu:latest",
-                    bind_mount_dir=tmp_dir,
-                    container_to_backup=service.name,
-                    backup_items=volume_backup_items,
-                )
+            backup_mapping = shell_backup(
+                self._docker_client,
+                "ubuntu:latest",
+                bind_mount_dir=tmp_dir,
+                container_to_backup=service.name,
+                backup_items=volume_backup_items,
+            )
 
-                for backup_item, tmp_source in backup_mapping.items():
-                    final_path = backup_item.final_path.joinpath(backup_item.file_name)
+            for backup_item, tmp_source in backup_mapping.items():
+                final_path = backup_item.final_path.joinpath(backup_item.file_name)
 
-                    if tmp_source is None:
-                        logger.error(
-                            f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
-                            f""" file '{final_path}' was not created as a result."""
-                        )
-                        continue
+                if tmp_source is None:
+                    logger.error(
+                        f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
+                        f""" file '{final_path}' was not created as a result."""
+                    )
+                    continue
 
-                    copyfile(tmp_source, final_path)
-                    backup_files.append(final_path)
+                copyfile(tmp_source, final_path)
+                backup_files.append(final_path)
 
         return backup_files
 
@@ -232,7 +231,7 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: List[DockerComposeService], target_dir: Path) -> None:
+    def __call__(self, service: DockerComposeService, target_dir: Path) -> List[Path]:
         """Executes a MySQL Backup Task for docker-compose environments.
 
         Steps for every container in storage info:
@@ -260,30 +259,28 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         with TemporaryDirectory() as tmp_dir_name:
             tmp_dir = Path(tmp_dir_name)
 
-            for service in storage_info:
+            mysql_backup_item = self._create_mysql_backup_item(target_dir)
 
-                mysql_backup_item = self._create_mysql_backup_item(target_dir)
+            backup_mapping = shell_backup(
+                self._docker_client,
+                "mysql:latest",
+                bind_mount_dir=tmp_dir,
+                container_to_backup=service.name,
+                backup_items=[mysql_backup_item],
+            )
 
-                backup_mapping = shell_backup(
-                    self._docker_client,
-                    "mysql:latest",
-                    bind_mount_dir=tmp_dir,
-                    container_to_backup=service.name,
-                    backup_items=[mysql_backup_item],
-                )
+            for backup_item, tmp_source in backup_mapping.items():
+                final_path = backup_item.final_path.joinpath(backup_item.file_name)
 
-                for backup_item, tmp_source in backup_mapping.items():
-                    final_path = backup_item.final_path.joinpath(backup_item.file_name)
+                if tmp_source is None:
+                    logger.error(
+                        f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
+                        f""" file '{final_path}' was not created."""
+                    )
+                    continue
 
-                    if tmp_source is None:
-                        logger.error(
-                            f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
-                            f""" file '{final_path}' was not created."""
-                        )
-                        continue
-
-                    copyfile(tmp_source, final_path)
-                    backup_files.append(final_path)
+                copyfile(tmp_source, final_path)
+                backup_files.append(final_path)
 
         return backup_files
 
