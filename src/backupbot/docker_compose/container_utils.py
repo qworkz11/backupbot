@@ -6,12 +6,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from subprocess import CompletedProcess, run
 
+import time
 from docker import DockerClient
-from docker.errors import ContainerError
-from typing import List, Dict, Union
+from docker.errors import ContainerError, APIError
+from typing import List, Dict, Union, Optional
 from pathlib import Path
 from dataclasses import dataclass, field
 from backupbot.logger import logger
+from backupbot.utils import timestamp
 
 
 @dataclass(unsafe_hash=True)
@@ -20,6 +22,7 @@ class BackupItem:
     command: str = field(hash=False)
     file_name: str = field(hash=True)
     final_path: Path = field(hash=True)
+    exec: Optional[str] = field(hash=False, default=None)
 
 
 @contextmanager
@@ -86,20 +89,51 @@ def docker_compose_down(compose_file: Path) -> None:
         raise RuntimeError(f"Failed to call docker-compose down: '{result.stderr}'.")
 
 
+def docker_exec(container: str, command: str) -> None:
+    args = ("docker", "exec", container, "sh", "-c", command)
+
+    result: CompletedProcess = run(args)
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to docker exec command '{command}': '{result.stdout}'.")
+
+
+def docker_exec_loop(container: str, command: str, timeout_s: int) -> None:
+    start = time.time()
+    while True:
+        try:
+            docker_exec(container, command)
+            break
+        except RuntimeError as error:
+            if time.time() - start >= timeout_s:
+                raise RuntimeError(f"Docker exec was not successful after {timeout_s}s.") from error
+
+
 def shell_backup(
     docker_client: DockerClient,
     image: str,
     bind_mount_dir: Path,
     container_to_backup: str,
     backup_items: List[BackupItem],
+    timeout_s: int = 10,
 ) -> Dict[BackupItem, Union[Path, None]]:
-    """Runs the shell command specified in the BackupItem instance on the specified container. Returns a dictionary
-    mapping the target file name of a backup to its temporary file in the bind_mount directory.
+    """Runs commands in a freshly started container.
+
+    The temporary container mounts 'bind_mount_dir'. Any files created by the command should be placed in
+    'bind_mount_dir' where they can be used by the caller.
+    When the backup item specifies a 'command' it is executed as the main command of the container. It therefore
+    replaces the container's main command.
+    When the backup item specifies an 'exec' command it is executed via 'docker exec' after the container has finished
+    its startign process.
+
+    The function returns a dictionary which maps the backup item to its created file in the mounted directory
+    ('bind_mount_dir').
 
     BackupItem instances must specify:
         - command: Shell command to run
         - final_path: Target backup directory on host, excluding file name
         - file_name: File name after backup
+        - exec: Shell command run by 'docker exec'
 
     Args:
         docker_client (DockerClient): DockerClient instance.
@@ -107,21 +141,49 @@ def shell_backup(
         bind_mount_dir (Path): Temporary directory used as a bind mount. Backups will be stored there.
         backup_items (List[BackupItem]): BackupItem instances specifying the command to run for the backup, the backup
             file name and the target directory for the backup on the host.
+        timeout_s (int): Time to wait for a successful 'docker exec' execution. Only used if BackupItem.exec is
+            specified.
+
+    Returns:
+        Dict[BackupItem, Union[Path, None]]: Contains the created backup file (if one was created) for each BackupItem
+            instance.
     """
     backup_temporary_file_mapping: Dict[BackupItem, Union[Path, None]] = {}  # key: backup item; value: temporary file
 
     for backup_item in backup_items:
+        name = f"{timestamp()}-backup-container"
         try:
-            docker_client.containers.run(
+            container = docker_client.containers.run(
                 image=image,
+                name=name,
+                detach=backup_item.exec is not None,  # we need the container alive after the function returns
                 remove=True,
                 command=backup_item.command,
                 volumes={str(bind_mount_dir): {"bind": str(Path("/backup"))}},
                 volumes_from=[container_to_backup],
             )
+
+            if backup_item.exec is not None:
+                # this means the container has not stopped yet
+                docker_exec_loop(name, command=backup_item.exec, timeout_s=5)
+                container.stop()
+
             mapping = bind_mount_dir.joinpath(backup_item.file_name)
-        except ContainerError as _:
+
+            if not mapping.exists():
+                logger.error(
+                    f"Failed to backup item '{backup_item}': The backup container did not fail but no file was created."
+                )
+                mapping = None
+
+        except ContainerError as error:
+            logger.warning(f"Failed to run image '{image}': {error}")
             mapping = None
+        finally:
+            try:
+                docker_client.containers.get(name).stop()
+            except Exception:
+                pass
 
         if not backup_item.final_path in backup_temporary_file_mapping:
             backup_temporary_file_mapping[backup_item] = mapping

@@ -8,10 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from backupbot.docker_compose.container_utils import (
-    docker_compose_down,
-    docker_compose_up,
-)
+from backupbot.docker_compose.container_utils import docker_compose_down, docker_compose_up, docker_exec
 from docker import DockerClient, from_env
 from docker.errors import NotFound
 
@@ -86,6 +83,7 @@ def running_docker_compose_project() -> Callable:
             Generator: Yields None.
         """
         docker_compose_up(compose_file)
+        docker_exec("mysql_service", "chmod +x /mount/create.sh && ./mount/create.sh")
         try:
             yield None
         finally:

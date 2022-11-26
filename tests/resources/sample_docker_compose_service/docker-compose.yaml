@@ -26,8 +26,12 @@ services:
       - MYSQL_USER=user
       - MYSQL_PASSWORD=user_password
       - MYSQL_DATABASE=test_database
+    volumes:
+      - ./mysql_service_bind_mount/scripts:/mount
+      - test_db_volume:/var/lib/mysql
 
 
 volumes:
   test_volume:
+  test_db_volume:
     external: true

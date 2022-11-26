@@ -18,6 +18,7 @@ from tests.utils.dummies import create_dummy_task
 from backupbot.data_structures import Volume
 from pytest import LogCaptureFixture
 import logging
+from backupbot.docker_compose.container_utils import stop_and_restart_container
 
 from backupbot.docker_compose.container_utils import BackupItem
 
@@ -252,9 +253,66 @@ def test_docker_volume_backup_call_with_failing_docker_container(
     with running_docker_compose_project(sample_docker_compose_project_dir.joinpath("docker-compose.yaml")) as _:
         backup_task(storage_info, tmp_path)
 
-    log_msg = caplog.record_tuples[0][2]
+    log_msg = caplog.record_tuples[1][2]
 
     assert (
         """Backup command 'tar -czf file.tar.gz /non/existing/directory' failed on service 'volume_service'. Backup"""
         """ file '/test_volume.tar.gz' was not created as a result.""" in log_msg
     )
+
+
+def test_docker_mysql_backup_task_backs_up_mysql_contents(
+    tmp_path: Path,
+    running_docker_compose_project: Callable,
+    sample_docker_compose_project_dir: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    temporary_directory = tmp_path.joinpath("temporary")
+    temporary_directory.mkdir()
+
+    @contextmanager
+    def dummy_TemporayDirectory():
+        yield temporary_directory
+
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "TemporaryDirectory", dummy_TemporayDirectory)
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
+
+    target_dir = tmp_path.joinpath("target")
+    target_dir.mkdir()
+
+    storage_info = [
+        DockerComposeService(
+            name="mysql_service",
+            container_name="mysql_service",
+            image="ubuntu:latest",
+            hostname="mysql_service",
+            volumes=[],
+            bind_mounts=[],
+        )
+    ]
+
+    backup_task = DockerMySQLBackupTask(database="test_database", user="root", password="root_password_42")
+
+    with running_docker_compose_project(sample_docker_compose_project_dir.joinpath("docker-compose.yaml")) as _:
+        with stop_and_restart_container(client=backup_task._docker_client, container_name="mysql_service"):
+            created_files = backup_task(storage_info, target_dir)
+
+    dump_file = temporary_directory.joinpath("TIMESTAMP-test_database.sql")
+    assert dump_file.is_file()
+
+    file_content = dump_file.read_text("utf-8")
+
+    assert target_dir.joinpath("test_database", "TIMESTAMP-test_database.sql") in created_files
+    assert len(list(temporary_directory.iterdir())) == 1
+
+    # table is created via scropt /mount/create.sh in mysql_service
+    create_table_command = """CREATE TABLE `test` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `value` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+)"""
+
+    insert_table_command = "INSERT INTO `test` VALUES (1,42);"
+
+    assert create_table_command in file_content
+    assert insert_table_command in file_content

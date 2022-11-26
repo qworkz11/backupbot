@@ -133,9 +133,9 @@ class DockerVolumeBackupTask(AbstractBackupTask):
 
         Folder structure after the backup:
 
-                |-volume_backup
-                |   |-volumes
-                |   |   |-volume_name.tar.gz
+                |-volumes
+                |   |-volume_name
+                |   |   |-TIMESTAMP-volume_name.tar.gz
 
         Args:
             storage_info (Dict[str, Dict[str, List]]): DockerComposeService instances containing containers to back up.
@@ -172,9 +172,7 @@ class DockerVolumeBackupTask(AbstractBackupTask):
 
         return backup_files
 
-    def _prepare_volume_backup(
-        self, volumes: List[Volume], target_dir: Path, tmp_directory: Path
-    ) -> Tuple[Dict[Path, Path], str]:
+    def _prepare_volume_backup(self, volumes: List[Volume], target_dir: Path, tmp_directory: Path) -> List[BackupItem]:
         backup_items: List[BackupItem] = []
 
         for volume in volumes:
@@ -229,20 +227,33 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         self.password = password
 
         self._docker_client = from_env()
+        self._container_backup_bind_mount = Path("/backup")  # must be absolute!
 
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
 
-    def __call__(self, storage_info: Dict[str, Dict[str, List]], target_dir: Path) -> None:
-        """
-        use DockerComposeBackupTask._backup_volumes_from() and make it more general: Pass command to execute as argument
-        and return dictionary of files to copy
+    def __call__(self, storage_info: List[DockerComposeService], target_dir: Path) -> None:
+        """Executes a MySQL Backup Task for docker-compose environments.
 
-        Command: mysqldump --password=<pw> --user=<user> <database name> > file.sql
+        Steps for every container in storage info:
+            - specify the mysql command to be called via 'docker exec'
+            - start a mysql image which mounts the container's volumes and bind mounts + a temporary bind mount under
+                /backup
+            - dump the contents of the specified MySQL database to a file in /backup
+            - copy the dumped file from the temporary directory to its target path
+
+        The issued command to create the MySQL dump:
+        Command: mysqldump --password=<root-pw> --user=root <database name> > /backup/<file>.sql
+
+        Folder structure after backup:
+
+            |-mysql_databases
+            |   |-database_name
+            |   |   |-TIMESTAMP-database_name.sql
 
         Args:
-            storage_info (Dict[str, Dict[str, List]]): _description_
-            target_dir (Path): _description_
+            storage_info (List[DockerComposeService]): Docker Compose storage info.
+            target_dir (Path): Destination directory.
         """
         backup_files: List[Path] = []
 
@@ -250,14 +261,15 @@ class DockerMySQLBackupTask(AbstractBackupTask):
             tmp_dir = Path(tmp_dir_name)
 
             for service in storage_info:
-                volume_backup_items = self._prepare_mysql_backup(service.volumes, target_dir, tmp_dir)
+
+                mysql_backup_item = self._create_mysql_backup_item(target_dir)
 
                 backup_mapping = shell_backup(
                     self._docker_client,
-                    "ubuntu:latest",
+                    "mysql:latest",
                     bind_mount_dir=tmp_dir,
                     container_to_backup=service.name,
-                    backup_items=volume_backup_items,
+                    backup_items=[mysql_backup_item],
                 )
 
                 for backup_item, tmp_source in backup_mapping.items():
@@ -266,7 +278,7 @@ class DockerMySQLBackupTask(AbstractBackupTask):
                     if tmp_source is None:
                         logger.error(
                             f"""Backup command '{backup_item.command}' failed on service '{service.name}'. Backup"""
-                            f""" file '{final_path}' was not created as a result."""
+                            f""" file '{final_path}' was not created."""
                         )
                         continue
 
@@ -275,7 +287,20 @@ class DockerMySQLBackupTask(AbstractBackupTask):
 
         return backup_files
 
-    def _prepare_mysql_backup(self, )
+    def _create_mysql_backup_item(self, target_dir: Path) -> BackupItem:
+        mysql_backup_dir = target_dir.joinpath(self.database)
+        filename = f"{timestamp()}-{self.database}.sql"
+
+        if not mysql_backup_dir.is_dir():
+            mysql_backup_dir.mkdir(parents=True)
+
+        container_filepath = self._container_backup_bind_mount.joinpath(filename)
+        return BackupItem(
+            command=None,  # make sure that MySQL main command is not overrideen
+            exec=f"mysqldump --password={self.password} --user={self.user} {self.database} > {container_filepath}",
+            file_name=filename,
+            final_path=mysql_backup_dir,
+        )
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, type(self)):

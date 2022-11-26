@@ -1,0 +1,12 @@
+{
+    "mysql_service": [
+        {
+            "type": "mysql_backup",
+            "config": {
+                "database": "test_database",
+                "user": "root",
+                "password": "root_password_42"
+            }
+        }
+    ]
+}
