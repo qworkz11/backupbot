@@ -15,7 +15,7 @@ class BackupAdapter(ABC):
         ...
 
     @abstractmethod
-    def parse_storage_info(self, files: List[Path], root_directory: Path) -> List[AbstractStorageInfo]:
+    def parse_storage_info(self, files: List[Path], root_directory: Path) -> Dict[str, AbstractStorageInfo]:
         ...
 
     @abstractmethod
@@ -26,19 +26,3 @@ class BackupAdapter(ABC):
     @contextmanager
     def stopped_system(self, storage_info: Optional[List[AbstractStorageInfo]] = None) -> Generator:
         ...
-
-    # @abstractmethod
-    # def backup_host_directory(self, directory: Path, destination: Path, container_name: str) -> None:
-    #     ...
-
-    # @abstractmethod
-    # def stop_container(self, container_id: str) -> None:
-    #     ...
-
-    # @abstractmethod
-    # def backup_volume(self, volume_name: str, container_id: str) -> None:
-    #     ...
-
-    # @abstractmethod
-    # def restart_container_with_volumes(self, container_id: str, volumes: List[str]) -> None:
-    #     ...

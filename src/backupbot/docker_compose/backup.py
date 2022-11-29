@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Module containing the DockerComposeBackupAdapter class."""
+"""Module containing the backup adapter for docker-compose."""
 
 import json
 from contextlib import contextmanager
@@ -39,7 +39,7 @@ class DockerComposeBackupAdapter(BackupAdapter):
 
         return self.config_files
 
-    def parse_storage_info(self, files: List[Path], root_directory: Path) -> List[DockerComposeService]:
+    def parse_storage_info(self, files: List[Path], root_directory: Path) -> Dict[str, DockerComposeService]:
         num_files = len(files)
         if num_files != 1:
             raise RuntimeError(f"Only one docker-compose file allowed: Got '{num_files}'.")
@@ -47,6 +47,17 @@ class DockerComposeBackupAdapter(BackupAdapter):
         return self._parse_compose_file(files[0], root_directory)
 
     def parse_backup_scheme(self, file: Path) -> Dict[str, List[AbstractBackupTask]]:
+        """Parses the specified backup config file into backup tasks.
+
+        Args:
+            file (Path): Backup configuration file (.json).
+
+        Raises:
+            RuntimeError: If the file does not exist or it is not a JSON file.
+
+        Returns:
+            Dict[str, List[AbstractBackupTask]]: List of backup tasks for each docker container.
+        """
         if not file.is_file() or not file.suffix.lower() == ".json":
             raise RuntimeError(f"Backup configuration file has wrong suffix or does not exist: '{file}'.")
 
@@ -105,7 +116,7 @@ class DockerComposeBackupAdapter(BackupAdapter):
         split = volume.split(":")
         return split[0], split[1]
 
-    def _parse_compose_file(self, file: Path, root_directory: Path) -> List[DockerComposeService]:
+    def _parse_compose_file(self, file: Path, root_directory: Path) -> Dict[str, DockerComposeService]:
         compose_content: Dict[str, Dict] = load_yaml_file(file)
 
         if not "services" in compose_content.keys():
@@ -114,9 +125,11 @@ class DockerComposeBackupAdapter(BackupAdapter):
         services: Dict[str, DockerComposeService] = {}
 
         for service_name, service_attributes in compose_content["services"].items():
+            container_name = service_attributes["container_name"]
+
             service = DockerComposeService(
                 name=service_name,
-                container_name=service_attributes["container_name"],
+                container_name=container_name,
                 image=service_attributes["image"],
                 hostname=service_attributes["hostname"],
                 volumes=[],
@@ -139,7 +152,7 @@ class DockerComposeBackupAdapter(BackupAdapter):
                     else:
                         service.volumes.append(Volume(name, Path(mount_point)))
 
-            services[service_name] = service
+            services[container_name] = service
 
         return services
 
