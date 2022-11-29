@@ -1,0 +1,30 @@
+{
+    "http-server": [
+        {
+            "type": "bind_mount_backup",
+            "config": {
+                "bind_mounts": [
+                    "scripts"
+                ]
+            }
+        },
+        {
+            "type": "volume_backup",
+            "config": {
+                "volumes": [
+                    "http_server_test_volume"
+                ]
+            }
+        }
+    ],
+    "database-service": [
+        {
+            "type": "mysql_backup",
+            "config": {
+                "database": "test_database",
+                "user": "root",
+                "password": "root_password"
+            }
+        }
+    ]
+}

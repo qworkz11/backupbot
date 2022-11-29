@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  http-server:
+    image: python:latest
+    container_name: http-server
+    hostname: http-server
+    command: sh -c "python -m http.server 8000 --directory /data"
+    ports:
+      - 8000:8000
+    volumes:
+      - http_server_test_volume:/data
+      - ./scripts:/config
+
+  database-service:
+    image: mysql:latest
+    hostname: database-service
+    container_name: database-service
+    environment:
+    - MYSQL_ROOT_PASSWORD=root_password
+    - MYSQL_USER=user
+    - MYSQL_PASSWORD=user_password
+    - MYSQL_DATABASE=test_database
+
+volumes:
+  http_server_test_volume:
+    external: true
