@@ -2,16 +2,16 @@
 
 """Utility functions to integrate docker and docker-compose functionality."""
 
+import time
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import CompletedProcess, run
+from typing import Dict, List, Optional, Union
 
-import time
 from docker import DockerClient
-from docker.errors import ContainerError, APIError
-from typing import List, Dict, Union, Optional
-from pathlib import Path
-from dataclasses import dataclass, field
+from docker.errors import ContainerError
+
 from backupbot.logger import logger
 from backupbot.utils import timestamp
 
@@ -90,6 +90,15 @@ def docker_compose_down(compose_file: Path) -> None:
 
 
 def docker_exec(container: str, command: str) -> None:
+    """Runs a shell command on a docker container using a sub-process.
+
+    Args:
+        container (str): Container to run the command on (must be running).
+        command (str): Shell command.
+
+    Raises:
+        RuntimeError: If the executop failed.
+    """
     args = ("docker", "exec", container, "sh", "-c", command)
 
     result: CompletedProcess = run(args)
@@ -99,6 +108,16 @@ def docker_exec(container: str, command: str) -> None:
 
 
 def docker_exec_loop(container: str, command: str, timeout_s: int) -> None:
+    """Tries to execute a shell command on a running docker container until successful.
+
+    Args:
+        container (str): Container name to run the command on (must be running).
+        command (str): Shell command.
+        timeout_s (int): Timeout to raise an Exception if the execution was unsuccessful.
+
+    Raises:
+        TimeoutError: If the execution was not successful after the specified time.
+    """
     start = time.time()
     while True:
         try:
@@ -106,7 +125,7 @@ def docker_exec_loop(container: str, command: str, timeout_s: int) -> None:
             break
         except RuntimeError as error:
             if time.time() - start >= timeout_s:
-                raise RuntimeError(f"Docker exec was not successful after {timeout_s}s.") from error
+                raise TimeoutError(f"Docker exec was not successful after {timeout_s}s.") from error
 
 
 def shell_backup(
@@ -115,7 +134,7 @@ def shell_backup(
     bind_mount_dir: Path,
     container_to_backup: str,
     backup_items: List[BackupItem],
-    timeout_s: int = 10,
+    timeout_s: int = 5,
 ) -> Dict[BackupItem, Union[Path, None]]:
     """Runs commands in a freshly started container.
 
@@ -165,7 +184,7 @@ def shell_backup(
 
             if backup_item.exec is not None:
                 # this means the container has not stopped yet
-                docker_exec_loop(name, command=backup_item.exec, timeout_s=5)
+                docker_exec_loop(name, command=backup_item.exec, timeout_s=timeout_s)
                 container.stop()
 
             mapping = bind_mount_dir.joinpath(backup_item.file_name)
@@ -194,3 +213,8 @@ def shell_backup(
             )
 
     return backup_temporary_file_mapping
+
+
+def container_exists(client: DockerClient, container_name: str) -> bool:
+    containers = [container.name for container in client.containers.list(all=True)]
+    return container_name in containers

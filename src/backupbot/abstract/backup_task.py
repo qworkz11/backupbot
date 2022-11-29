@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List
 from pathlib import Path
+from typing import Callable, List
 
 from backupbot.abstract.storage_info import AbstractStorageInfo
 

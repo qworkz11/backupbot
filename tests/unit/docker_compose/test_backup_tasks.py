@@ -1,26 +1,26 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Callable
+from typing import Callable, List
+
+import pytest
+from pytest import LogCaptureFixture, MonkeyPatch
 
 import backupbot.docker_compose.backup_tasks
-import pytest
 from backupbot.abstract.backup_task import AbstractBackupTask
-from backupbot.data_structures import HostDirectory
+from backupbot.data_structures import HostDirectory, Volume
 from backupbot.docker_compose.backup_tasks import (
     DockerBindMountBackupTask,
     DockerMySQLBackupTask,
     DockerVolumeBackupTask,
 )
+from backupbot.docker_compose.container_utils import (
+    BackupItem,
+    stop_and_restart_container,
+)
 from backupbot.docker_compose.storage_info import DockerComposeService
+from backupbot.errors import BackupNotExistingContainerError
 from backupbot.utils import path_to_string
-from pytest import MonkeyPatch
 from tests.utils.dummies import create_dummy_task
-from backupbot.data_structures import Volume
-from pytest import LogCaptureFixture
-
-from backupbot.docker_compose.container_utils import stop_and_restart_container
-
-from backupbot.docker_compose.container_utils import BackupItem
 
 
 def test_docker_bind_mount_backup_has_accessible_target_dir_name() -> None:
@@ -59,6 +59,7 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(
     )
 
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "container_exists", lambda *_, **__: True)
 
     bind_mount_path = tmp_path.joinpath("service1", "bind_mounts")
     bind_mount_path.mkdir(parents=True)
@@ -101,6 +102,7 @@ def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
     )
 
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "container_exists", lambda *_, **__: True)
 
     bind_mount_path = tmp_path.joinpath("service1", "bind_mounts")
     bind_mount_path.mkdir(parents=True)
@@ -151,7 +153,7 @@ def test_docker_volume_backup_task_prepare_volume_backup(tmp_path: Path, monkeyp
     target_dir.mkdir()
     temp_dir.mkdir()
 
-    volumes = [Volume("volume1", Path("mount1")), Volume("volume2", Path("mount2"))]
+    volumes = [Volume("volume1", Path("/mount1")), Volume("volume2", Path("/mount2"))]
 
     backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
 
@@ -159,12 +161,12 @@ def test_docker_volume_backup_task_prepare_volume_backup(tmp_path: Path, monkeyp
 
     assert backup_items == [
         BackupItem(
-            command="tar -czf /backup/TIMESTAMP-volume1.tar.gz mount1",
+            command="tar -czf /backup/TIMESTAMP-volume1.tar.gz /mount1",
             file_name="TIMESTAMP-volume1.tar.gz",
             final_path=target_dir.joinpath("volume1"),
         ),
         BackupItem(
-            command="tar -czf /backup/TIMESTAMP-volume2.tar.gz mount2",
+            command="tar -czf /backup/TIMESTAMP-volume2.tar.gz /mount2",
             file_name="TIMESTAMP-volume2.tar.gz",
             final_path=target_dir.joinpath("volume2"),
         ),
@@ -190,11 +192,12 @@ def test_docker_volume_backup_call_creates_tar_files_in_temporary_directory(
 
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "TemporaryDirectory", dummy_TemporayDirectory)
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "container_exists", lambda *_, **__: True)
 
     target_dir = tmp_path.joinpath("target")
     target_dir.mkdir()
 
-    volumes = [Volume("test_volume", Path("tmp/volume"))]
+    volumes = [Volume("test_volume", Path("/tmp/volume"))]
 
     service = DockerComposeService(
         name="volume_service",
@@ -230,7 +233,7 @@ def test_docker_volume_backup_call_with_failing_docker_container(
         lambda *_: [BackupItem(failing_tar_command, Path("test_volume.tar.gz"), Path("/"))],
     )
 
-    volumes = [Volume("test_volume", Path("tmp/volume"))]
+    volumes = [Volume("test_volume", Path("/tmp/volume"))]
 
     service = DockerComposeService(
         name="volume_service",
@@ -269,6 +272,7 @@ def test_docker_mysql_backup_task_backs_up_mysql_contents(
 
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "TemporaryDirectory", dummy_TemporayDirectory)
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "container_exists", lambda *_, **__: True)
 
     target_dir = tmp_path.joinpath("target")
     target_dir.mkdir()
@@ -278,8 +282,13 @@ def test_docker_mysql_backup_task_backs_up_mysql_contents(
         container_name="mysql_service",
         image="ubuntu:latest",
         hostname="mysql_service",
-        volumes=[],
-        bind_mounts=[],
+        volumes=[Volume(name="test_db_volume", mount_point=Path("/var/lib/sql"))],
+        bind_mounts=[
+            HostDirectory(
+                path=sample_docker_compose_project_dir.joinpath("mysql_service_bind_mount", "scripts"),
+                mount_point=Path("/var/lib/mysql"),
+            )
+        ],
     )
 
     backup_task = DockerMySQLBackupTask(database="test_database", user="root", password="root_password_42")
@@ -307,3 +316,20 @@ def test_docker_mysql_backup_task_backs_up_mysql_contents(
 
     assert create_table_command in file_content
     assert insert_table_command in file_content
+
+
+def test_backup_tasks_raise_when_container_does_not_exit(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "container_exists", lambda *_, **__: False)
+
+    service = DockerComposeService(
+        name="test", container_name="test", image="test", hostname="test", volumes=[], bind_mounts=[]
+    )
+
+    with pytest.raises(BackupNotExistingContainerError):
+        DockerBindMountBackupTask([])(service, None)
+
+    with pytest.raises(BackupNotExistingContainerError):
+        DockerVolumeBackupTask([])(service, None)
+
+    with pytest.raises(BackupNotExistingContainerError):
+        DockerMySQLBackupTask(None, None, None)(service, None)

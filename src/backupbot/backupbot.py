@@ -9,6 +9,7 @@ from backupbot.abstract.backup_adapter import BackupAdapter
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.docker_compose.backup import DockerComposeBackupAdapter
+from backupbot.errors import BackupNotExistingContainerError
 from backupbot.logger import logger
 from backupbot.versioning import update_version_numbers
 
@@ -127,7 +128,13 @@ class BackupBot:
         self.create_service_backup_structure(storage_info, backup_tasks)
 
         with self.backup_adapter.stopped_system(storage_info) as _:
-            self._run_backup_tasks(storage_info, backup_tasks)
+            stats = self._run_backup_tasks(storage_info, backup_tasks)
+
+        stat_message = f"{stats['success']} successful, {stats['error']} errors"
+        if stats["error"] == 0:
+            logger.info(stat_message)
+        else:
+            logger.warning(stat_message)
 
     def update_file_versions(self, created_files: List[Path]) -> None:
         """Updates version numbers in all specified files' parent directories.
@@ -142,24 +149,31 @@ class BackupBot:
         self,
         storage_info: Dict[str, AbstractStorageInfo],
         backup_tasks: Dict[str, List[AbstractBackupTask]],
-    ) -> List[Path]:
-        created_files = []
+    ) -> Dict[str, int]:
+        stats: Dict[str, int] = {"success": 0, "error": 0}
         for service_name, tasks in backup_tasks.items():
             logger.info(f"Running {len(tasks)} backup task(s) for service '{service_name}'...")
             for task in tasks:
+                task_str = task.__class__.__qualname__
                 try:
                     logger.info(f"Running '{task.__class__.__qualname__}' for service '{service_name}'...")
                     task_files = task(
                         storage_info[service_name], self.destination.joinpath(service_name, type(task).target_dir_name)
                     )
-                    created_files.extend(task_files)
-                    logger.info(f"Finished '{task.__class__.__qualname__}': {created_files}")
+                    logger.info(f"Finished '{task_str}': {task_files}")
+                    stats["success"] += 1
                 except NotImplementedError as task_init_error:
-                    logger.error(f"Failed to execute backup task '{task}': '{task_init_error}'.")
+                    logger.error(f"Failed to execute backup task '{task_str}': '{task_init_error}'.")
+                    stats["error"] += 1
                 except NotADirectoryError as dir_error:
-                    logger.error(f"Failed to execute backup task '{task}': '{dir_error}'.")
+                    logger.error(f"Failed to execute backup task '{task_str}': '{dir_error}'.")
+                    stats["error"] += 1
                 except RuntimeError as runtime_error:
-                    logger.error(f"Failed to execute backup task '{task}': '{runtime_error}'.")
+                    logger.error(f"Failed to execute backup task '{task_str}': '{runtime_error}'.")
+                    stats["error"] += 1
+                except BackupNotExistingContainerError as container_error:
+                    logger.error(f"Failed to execute backup task '{task_str}': '{container_error}'.")
+                    stats["error"] += 1
 
             logger.info(f"Finished backup of service '{service_name}'.")
-        return created_files
+        return stats

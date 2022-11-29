@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from shutil import copyfile
+from tempfile import TemporaryDirectory
+from typing import Dict, List
+
+from docker import DockerClient, from_env
 
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.data_structures import HostDirectory, Volume
-from backupbot.docker_compose.container_utils import BackupItem
+from backupbot.docker_compose.container_utils import (
+    BackupItem,
+    container_exists,
+    shell_backup,
+)
 from backupbot.docker_compose.storage_info import DockerComposeService
-from backupbot.utils import path_to_string, tar_file_or_directory, timestamp
-from tempfile import TemporaryDirectory
+from backupbot.errors import BackupNotExistingContainerError
 from backupbot.logger import logger
-from docker import from_env, DockerClient
-from shutil import copyfile
-from backupbot.docker_compose.container_utils import shell_backup
-
-from docker.errors import ContainerError
+from backupbot.utils import path_to_string, tar_file_or_directory, timestamp
 
 
 class DockerBindMountBackupTask(AbstractBackupTask):
@@ -32,6 +35,8 @@ class DockerBindMountBackupTask(AbstractBackupTask):
             NotImplementedError: When the class has no shared target_dir_name attribute.
         """
         self.bind_mounts = bind_mounts
+
+        self._docker_client: DockerClient = from_env()
 
         if kwargs:
             raise NotImplementedError(f"{type(self)} received unknown parameters: {kwargs}")
@@ -53,6 +58,9 @@ class DockerBindMountBackupTask(AbstractBackupTask):
         Returns:
             List[Path]: Created files.
         """
+        if not container_exists(self._docker_client, service.container_name):
+            raise BackupNotExistingContainerError(f"Container '{service.container_name}' does not exist.")
+
         if self.bind_mounts == ["all"]:
             backup_mounts: List[HostDirectory] = service.bind_mounts
         else:
@@ -144,6 +152,9 @@ class DockerVolumeBackupTask(AbstractBackupTask):
             storage_info (Dict[str, Dict[str, List]]): DockerComposeService instances containing containers to back up.
             target_dir (Path): Final backup directory
         """
+        if not container_exists(self._docker_client, service.container_name):
+            raise BackupNotExistingContainerError(f"Container '{service.container_name}' does not exist.")
+
         backup_files: List[Path] = []
 
         with TemporaryDirectory() as tmp_dir_name:
@@ -260,6 +271,9 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         Returns:
             List[Path]: List of created files.
         """
+        if not container_exists(self._docker_client, service.container_name):
+            raise BackupNotExistingContainerError(f"Container '{service.container_name}' does not exist.")
+
         backup_files: List[Path] = []
 
         with TemporaryDirectory() as tmp_dir_name:

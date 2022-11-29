@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Generator, List, Tuple
 
+from docker import DockerClient, from_env
+
 from backupbot.abstract.backup_adapter import BackupAdapter
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.data_structures import HostDirectory, Volume
@@ -22,7 +24,6 @@ from backupbot.docker_compose.container_utils import (
 from backupbot.docker_compose.storage_info import DockerComposeService
 from backupbot.logger import logger
 from backupbot.utils import load_yaml_file, match_files
-from docker import DockerClient, from_env
 
 
 class DockerComposeBackupAdapter(BackupAdapter):
