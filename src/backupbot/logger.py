@@ -9,7 +9,7 @@ from typing import List
 # LOGGING_PATH = Path().cwd().joinpath("backupbot.log")
 # LOGGING_PATH.touch()
 
-LOG_FORMAT = "[%(asctime)s][%(name)s][%(levelname)s] %(message)s"
+LOG_FORMAT = "[%(asctime)s][%(name)s][%(levelname)-7s] %(message)s"
 DEFAULT_LOG_LEVEL = logging.DEBUG
 
 # if not LOGGING_PATH.exists():

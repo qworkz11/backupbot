@@ -5,8 +5,8 @@
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
 from shutil import copyfile
+from typing import Dict, List
 
 from yaml import Loader, load
 

@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import pytest
+from docker import DockerClient
+
 from backupbot.docker_compose.container_utils import (
     docker_compose_down,
     docker_compose_start,
@@ -8,10 +10,6 @@ from backupbot.docker_compose.container_utils import (
     docker_compose_up,
     stop_and_restart_container,
 )
-
-from docker import DockerClient
-
-from tests.utils.dummies import DummyDockerClient
 
 
 def test_stop_and_restart_container(docker_client: DockerClient):
@@ -102,6 +100,3 @@ def test_docker_compose_down_raises_error_for_invalid_compose_file() -> None:
 
     with pytest.raises(RuntimeError):
         docker_compose_down(Path("not/existing.yaml"))
-
-
-# def test

@@ -10,14 +10,14 @@ from typing import Any
 
 @dataclass
 class Volume:
-    name: str
-    mount_point: Path
+    name: str  # (global) volume name
+    mount_point: Path  # mount point inside the container
 
 
 @dataclass
 class HostDirectory:
-    path: Path
-    mount_point: Path
+    path: Path  # path on host
+    mount_point: Path  # mount point inside the container
 
 
 @dataclass
