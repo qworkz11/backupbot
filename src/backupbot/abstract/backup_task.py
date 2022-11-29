@@ -26,27 +26,3 @@ class AbstractBackupTask(ABC):
 
     def get_dest_dir_name(self) -> str:
         return type(self).target_dir_name
-
-
-# class AbstractHostDirectoryBackupTask(AbstractBackupTask, ABC):
-#     target_dir_name = "host_directories"
-
-#     @abstractmethod
-#     def __call__(self, storage_info: Dict[str, Dict[str, List]]) -> None:
-#         ...
-
-
-# class AbstractVolumeBackupTask(AbstractBackupTask, ABC):
-#     target_dir_name = "volumes"
-
-#     @abstractmethod
-#     def __call__(self, storage_info: Dict[str, Dict[str, List]]) -> None:
-#         ...
-
-
-# class AbstractMySQLBackupTask(AbstractBackupTask, ABC):
-#     target_dir_name = "mysql_databases"
-
-#     @abstractmethod
-#     def __call__(self, storage_info: Dict[str, Dict[str, List]]) -> None:
-#         ...

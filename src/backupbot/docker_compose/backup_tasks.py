@@ -42,13 +42,16 @@ class DockerBindMountBackupTask(AbstractBackupTask):
 
         Folder structure after the backup:
 
-                |-backup_task_dir
-                |   |-bind_mounts
-                |   |      |-bind_mount_name.tar.gz
+                |-bind_mounts
+                |   |-bind_mount_name
+                |   |      |-TIMESTAMP-bind_mount_name.tar.gz
 
         Args:
             storage_info (List[DockerComposeService]): Docker-compose storage info.
             backup_task_dir (Path): Destination directory.
+
+        Returns:
+            List[Path]: Created files.
         """
         if self.bind_mounts == ["all"]:
             backup_mounts: List[HostDirectory] = service.bind_mounts
@@ -146,7 +149,7 @@ class DockerVolumeBackupTask(AbstractBackupTask):
         with TemporaryDirectory() as tmp_dir_name:
             tmp_dir = Path(tmp_dir_name)
 
-            volume_backup_items = self._prepare_volume_backup(service.volumes, target_dir, tmp_dir)
+            volume_backup_items = self._prepare_volume_backup(service.volumes, target_dir)
 
             backup_mapping = shell_backup(
                 self._docker_client,
@@ -171,7 +174,7 @@ class DockerVolumeBackupTask(AbstractBackupTask):
 
         return backup_files
 
-    def _prepare_volume_backup(self, volumes: List[Volume], target_dir: Path, tmp_directory: Path) -> List[BackupItem]:
+    def _prepare_volume_backup(self, volumes: List[Volume], target_dir: Path) -> List[BackupItem]:
         backup_items: List[BackupItem] = []
 
         for volume in volumes:
@@ -253,6 +256,9 @@ class DockerMySQLBackupTask(AbstractBackupTask):
         Args:
             storage_info (List[DockerComposeService]): Docker Compose storage info.
             target_dir (Path): Destination directory.
+
+        Returns:
+            List[Path]: List of created files.
         """
         backup_files: List[Path] = []
 
