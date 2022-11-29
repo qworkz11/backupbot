@@ -155,7 +155,7 @@ def test_docker_volume_backup_task_prepare_volume_backup(tmp_path: Path, monkeyp
 
     backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
 
-    backup_items = backup_task._prepare_volume_backup(volumes, target_dir=target_dir, tmp_directory=temp_dir)
+    backup_items = backup_task._prepare_volume_backup(volumes, target_dir=target_dir)
 
     assert backup_items == [
         BackupItem(

@@ -6,3 +6,4 @@ venv/
 ./planning.md
 build
 *.log
+htmlcov/

@@ -15,6 +15,33 @@ from backupbot.docker_compose.storage_info import DockerComposeService
 from docker import DockerClient
 from pytest import MonkeyPatch
 
+test_system_storage_info = {
+    "bind_mount_service": DockerComposeService(
+        name="bind_mount_service",
+        container_name="bind_mount_service",
+        image="ubuntu",
+        hostname="bind_mount_service",
+        volumes=[],
+        bind_mounts=[],
+    ),
+    "volume_service": DockerComposeService(
+        name="volume_service",
+        container_name="volume_service",
+        image="ubuntu",
+        hostname="volume_service",
+        volumes=[],
+        bind_mounts=[],
+    ),
+    "mysql_service": DockerComposeService(
+        name="mysql_service",
+        container_name="mysql_service",
+        image="mysql",
+        hostname="mysql_service",
+        volumes=[],
+        bind_mounts=[],
+    ),
+}
+
 
 def test_docker_backup_adapter_discover_config_files(tmp_path: Path) -> None:
     tmp_path.joinpath("services", "data").mkdir(parents=True)
@@ -59,8 +86,8 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
 
     # plit these up to enable better debugging...
     parsed = dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path)
-    compare = [
-        DockerComposeService(
+    compare = {
+        "service1": DockerComposeService(
             name="first_service",
             container_name="service1",
             image="image1",
@@ -71,7 +98,7 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
                 Volume("service1_volume2", Path("/service1/volume2/path")),
             ],
         ),
-        DockerComposeService(
+        "service2": DockerComposeService(
             name="second_service",
             container_name="service2",
             image="source/image",
@@ -85,7 +112,7 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
                 Volume("service2_volume2", Path("/service2/volume2/path")),
             ],
         ),
-    ]
+    }
 
     assert parsed == compare
 
@@ -138,8 +165,8 @@ def test_docker_backup_parse_storage_info_returns_list_of_docker_compose_service
 
     result = dba.parse_storage_info([dummy_docker_compose_file], tmp_path)
 
-    assert isinstance(result, list)
-    service_names = [service.name for service in result]
+    assert isinstance(result, dict)
+    service_names = [service.name for _, service in result.items()]
     assert "first_service" in service_names
     assert "second_service" in service_names
 
@@ -169,38 +196,12 @@ def test_docker_backup_stopped_system_stops_docker_compose_system(
     docker_client: DockerClient, running_docker_compose_project: Callable, sample_docker_compose_project_dir: Path
 ) -> None:
     compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
-    storage_info = [
-        DockerComposeService(
-            name="bind_mount_service",
-            container_name="bind_mount_service",
-            image="ubuntu",
-            hostname="bind_mount_service",
-            volumes=[],
-            bind_mounts=[],
-        ),
-        DockerComposeService(
-            name="volume_service",
-            container_name="volume_service",
-            image="ubuntu",
-            hostname="volume_service",
-            volumes=[],
-            bind_mounts=[],
-        ),
-        DockerComposeService(
-            name="mysql_service",
-            container_name="mysql_service",
-            image="mysql",
-            hostname="mysql_service",
-            volumes=[],
-            bind_mounts=[],
-        ),
-    ]
 
     with running_docker_compose_project(compose_file) as _:
         dba = DockerComposeBackupAdapter()
         dba.config_files = [compose_file]
 
-        with dba.stopped_system(storage_info) as __:
+        with dba.stopped_system(test_system_storage_info) as __:
             containers = [container.name for container in docker_client.containers.list(filters={"status": "exited"})]
             assert "bind_mount_service" in containers
             assert "volume_service" in containers
@@ -218,34 +219,8 @@ def test_stopped_system_does_not_restart_system_when_it_has_not_been_running(
     compose_file = sample_docker_compose_project_dir.joinpath("docker-compose.yaml")
     dba = DockerComposeBackupAdapter()
     dba.config_files = [compose_file]
-    storage_info = [
-        DockerComposeService(
-            name="bind_mount_service",
-            container_name="bind_mount_service",
-            image="ubuntu",
-            hostname="bind_mount_service",
-            volumes=[],
-            bind_mounts=[],
-        ),
-        DockerComposeService(
-            name="volume_service",
-            container_name="volume_service",
-            image="ubuntu",
-            hostname="volume_service",
-            volumes=[],
-            bind_mounts=[],
-        ),
-        DockerComposeService(
-            name="mysql_service",
-            container_name="mysql_service",
-            image="mysql",
-            hostname="mysql_service",
-            volumes=[],
-            bind_mounts=[],
-        ),
-    ]
 
-    with dba.stopped_system(storage_info) as _:
+    with dba.stopped_system(test_system_storage_info) as _:
         containers = [container.name for container in docker_client.containers.list(filters={"status": "running"})]
         assert "bind_mount_service" not in containers
         assert "volume_service" not in containers
