@@ -9,6 +9,3 @@ while !(mysql_ready)
 
 mysql -u "root" -p"root_password_42" "test_database" -e \
     "CREATE TABLE IF NOT EXISTS test (id INT AUTO_INCREMENT, value INT, PRIMARY KEY (id));INSERT INTO test(value) SELECT 42 WHERE NOT EXISTS (SELECT * FROM test);"
-
-# mysql -u "root" -p"root_password_42" "test_database" -e \
-#     "CREATE TABLE test (id INT AUTO_INCREMENT, value INT, PRIMARY KEY (id));INSERT INTO test(value) VALUES(42);"
