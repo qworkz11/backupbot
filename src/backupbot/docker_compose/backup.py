@@ -5,7 +5,7 @@
 import json
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Generator, List, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
 
 from docker import DockerClient, from_env
 
@@ -87,6 +87,9 @@ class DockerComposeBackupAdapter(BackupAdapter):
 
         return backup_scheme
 
+    def generate_backup_config(self, storage_info: Dict[str, DockerComposeService]) -> Optional[Path]:
+        backup_config: Dict[str] = {}
+
     @contextmanager
     def stopped_system(self, storage_info: Dict[str, DockerComposeService] = None) -> Generator:
         """Context manager which stops and restarts the docker-compose system if it is running.
@@ -149,9 +152,11 @@ class DockerComposeBackupAdapter(BackupAdapter):
 
                     if volume.startswith("."):
                         host_directory_path = root_directory.joinpath(name)
-                        service.bind_mounts.append(HostDirectory(host_directory_path, Path(mount_point)))
+                        service.bind_mounts.append(
+                            HostDirectory(path=host_directory_path, mount_point=Path(mount_point))
+                        )
                     else:
-                        service.volumes.append(Volume(name, Path(mount_point)))
+                        service.volumes.append(Volume(name=name, mount_point=Path(mount_point)))
 
             services[container_name] = service
 

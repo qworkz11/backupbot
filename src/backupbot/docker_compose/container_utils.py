@@ -216,5 +216,14 @@ def shell_backup(
 
 
 def container_exists(client: DockerClient, container_name: str) -> bool:
+    """Checks if a docker container has a valid state, e.g 'running' or 'stopped'.
+
+    Args:
+        client (DockerClient): Docker client.
+        container_name (str): Container name.
+
+    Returns:
+        bool: Whether or not the container exists.
+    """
     containers = [container.name for container in client.containers.list(all=True)]
     return container_name in containers

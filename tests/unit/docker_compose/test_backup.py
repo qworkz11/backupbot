@@ -2,8 +2,11 @@ from pathlib import Path
 from typing import Callable, List
 from unicodedata import bidirectional
 
-import backupbot.docker_compose.backup
 import pytest
+from docker import DockerClient
+from pytest import MonkeyPatch
+
+import backupbot.docker_compose.backup
 from backupbot.data_structures import HostDirectory, Volume
 from backupbot.docker_compose.backup import DockerComposeBackupAdapter
 from backupbot.docker_compose.backup_tasks import (
@@ -12,8 +15,6 @@ from backupbot.docker_compose.backup_tasks import (
     DockerVolumeBackupTask,
 )
 from backupbot.docker_compose.storage_info import DockerComposeService
-from docker import DockerClient
-from pytest import MonkeyPatch
 
 test_system_storage_info = {
     "bind_mount_service": DockerComposeService(
@@ -92,10 +93,14 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
             container_name="service1",
             image="image1",
             hostname="hostname1",
-            bind_mounts=[HostDirectory(tmp_path.joinpath("service1_bind_mount1"), Path("/service1/bind_mount1/path"))],
+            bind_mounts=[
+                HostDirectory(
+                    path=tmp_path.joinpath("service1_bind_mount1"), mount_point=Path("/service1/bind_mount1/path")
+                )
+            ],
             volumes=[
-                Volume("service1_volume1", Path("/service1/volume1/path")),
-                Volume("service1_volume2", Path("/service1/volume2/path")),
+                Volume(name="service1_volume1", mount_point=Path("/service1/volume1/path")),
+                Volume(name="service1_volume2", mount_point=Path("/service1/volume2/path")),
             ],
         ),
         "service2": DockerComposeService(
@@ -104,12 +109,16 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
             image="source/image",
             hostname="hostname2",
             bind_mounts=[
-                HostDirectory(tmp_path.joinpath("service2_bind_mount1"), Path("/service2/bind_mount1/path")),
-                HostDirectory(tmp_path.joinpath("service2_bind_mount2"), Path("/service2/bind_mount2/path")),
+                HostDirectory(
+                    path=tmp_path.joinpath("service2_bind_mount1"), mount_point=Path("/service2/bind_mount1/path")
+                ),
+                HostDirectory(
+                    path=tmp_path.joinpath("service2_bind_mount2"), mount_point=Path("/service2/bind_mount2/path")
+                ),
             ],
             volumes=[
-                Volume("service2_volume1", Path("/service2/volume1/path")),
-                Volume("service2_volume2", Path("/service2/volume2/path")),
+                Volume(name="service2_volume1", mount_point=Path("/service2/volume1/path")),
+                Volume(name="service2_volume2", mount_point=Path("/service2/volume2/path")),
             ],
         ),
     }

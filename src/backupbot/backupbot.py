@@ -73,6 +73,35 @@ class BackupBot:
                     if not subdir_path.is_dir():
                         subdir_path.mkdir(parents=True)
 
+    def parse_storage_info(self) -> Dict[str, AbstractStorageInfo]:
+        """Generates a storage info instance from storage info files found in self.root directory.
+
+        Raises:
+            RuntimeError: If storage files cannot be found in root or they cannot be parsed.
+            RuntimeError: _description_
+
+        Returns:
+            Dict[str, AbstractStorageInfo]: System storage info.
+        """
+        try:
+            storage_files = self.backup_adapter.discover_config_files(self.root)
+            logger.info(f"Found {len(storage_files)} storage file(s).")
+            logger.debug(f"Storage files: {storage_files}")
+        except RuntimeError as error:
+            logger.error(f"Failed to locate storage files in '{self.root}': '{error.message}'.")
+            raise RuntimeError from error
+
+        try:
+            storage_info: Dict[str, AbstractStorageInfo] = self.backup_adapter.parse_storage_info(
+                storage_files, self.root
+            )
+            logger.info(f"Parsed storage info: {[info.name for info in storage_info.values()]}")
+        except RuntimeError as error:
+            logger.error(f"Failed to parse config files '{storage_files}': '{error.message}'.")
+            raise RuntimeError from error
+
+        return storage_info
+
     def run(self) -> None:
         """Executes the backup pipeline provided through the provided backup adapter.
 
@@ -100,22 +129,7 @@ class BackupBot:
             RuntimeError: If the loaded config files cannot be parsed.
             RuntimeError: If the backup scheme cannot be parsed.
         """
-        try:
-            storage_files = self.backup_adapter.discover_config_files(self.root)
-            logger.info(f"Found {len(storage_files)} storage file(s).")
-            logger.debug(f"Storage files: {storage_files}")
-        except RuntimeError as error:
-            logger.error(f"Failed to locate config files in '{self.root}': '{error.message}'.")
-            raise RuntimeError from error
-
-        try:
-            storage_info: Dict[str, AbstractStorageInfo] = self.backup_adapter.parse_storage_info(
-                storage_files, self.root
-            )
-            logger.info(f"Parsed storage info: {[info.name for info in storage_info.values()]}")
-        except RuntimeError as error:
-            logger.error(f"Failed to parse config files '{storage_files}': '{error.message}'.")
-            raise RuntimeError from error
+        storage_info = self.parse_storage_info()
 
         try:
             backup_tasks: Dict[str, List[AbstractBackupTask]] = self.backup_adapter.parse_backup_scheme(
@@ -177,3 +191,6 @@ class BackupBot:
 
             logger.info(f"Finished backup of service '{service_name}'.")
         return stats
+
+    def generate_backup_config(self, storage_files: List[Path]) -> None:
+        pass

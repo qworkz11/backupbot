@@ -5,17 +5,17 @@ from logging import ERROR
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-import backupbot.docker_compose.backup_tasks
 import pytest
+from docker import DockerClient
+from pytest import LogCaptureFixture, MonkeyPatch
+
+import backupbot.docker_compose.backup_tasks
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.backupbot import BackupBot
-from docker import DockerClient
-from pytest import LogCaptureFixture, MonkeyPatch
 from tests.utils.dummies import create_dummy_task
 
 
-@dataclass
 class DummyStorageInfo(AbstractStorageInfo):
     name: str
     unused_value: str
@@ -52,8 +52,8 @@ def test_create_service_backup_structure(tmp_path: Path) -> None:
     bub = BackupBot(root=Path("unimportant"), destination=tmp_path, backup_config=Path("unimportant"))
 
     storage_info = {
-        "service1": DummyStorageInfo("service1", "some_value"),
-        "service2": DummyStorageInfo("service2", "some_value"),
+        "service1": DummyStorageInfo(name="service1", unused_value="some_value"),
+        "service2": DummyStorageInfo(name="service2", unused_value="some_value"),
     }
     backup_tasks = {
         "service1": [create_dummy_task("dummy_task1"), create_dummy_task("dummy_task2")],
@@ -79,8 +79,8 @@ def test_create_service_backup_structure_creates_directories_only_when_specified
     bub = BackupBot(root=Path("unimportant"), destination=tmp_path, backup_config=Path("unimportant"))
 
     storage_info = {
-        "service1": DummyStorageInfo("service1", "some_value"),
-        "service2": DummyStorageInfo("service2", "some_value"),
+        "service1": DummyStorageInfo(name="service1", unused_value="some_value"),
+        "service2": DummyStorageInfo(name="service2", unused_value="some_value"),
     }
     backup_tasks = {"service1": [create_dummy_task("dummy_task1")]}
 

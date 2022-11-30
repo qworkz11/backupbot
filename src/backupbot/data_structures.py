@@ -7,15 +7,15 @@ from functools import total_ordering
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel
 
-@dataclass
-class Volume:
+
+class Volume(BaseModel):
     name: str  # (global) volume name
     mount_point: Path  # mount point inside the container
 
 
-@dataclass
-class HostDirectory:
+class HostDirectory(BaseModel):
     path: Path  # path on host
     mount_point: Path  # mount point inside the container
 
