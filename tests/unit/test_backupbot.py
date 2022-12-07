@@ -45,7 +45,7 @@ def raise_error(exception: Exception, msg: Optional[str] = None) -> None:
 
 def test_init_raises_error_when_adapter_unknown() -> None:
     with pytest.raises(ValueError):
-        BackupBot(Path("unimportant"), Path("unimportant"), Path("unimportant"), adapter="unknown_cri")
+        BackupBot(root=Path("unimportant"), destination_directory=Path("unimportant"), adapter="unknown_adapter")
 
 
 def test_create_service_backup_structure(tmp_path: Path) -> None:
