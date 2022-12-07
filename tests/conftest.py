@@ -93,7 +93,6 @@ def running_docker_compose_project() -> Callable:
             Generator: Yields None.
         """
         docker_compose_up(compose_file)
-        docker_exec("mysql_service", "chmod +x /mount/create.sh && ./mount/create.sh")
         try:
             yield None
         finally:
