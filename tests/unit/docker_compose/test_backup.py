@@ -85,7 +85,6 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
 ) -> None:
     dba = DockerComposeBackupAdapter()
 
-    # plit these up to enable better debugging...
     parsed = dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path)
     compare = {
         "service1": DockerComposeService(
@@ -239,3 +238,54 @@ def test_stopped_system_does_not_restart_system_when_it_has_not_been_running(
     assert "bind_mount_service" not in containers
     assert "volume_service" not in containers
     assert "mysql_service" not in containers
+
+
+def test_generate_backup_config(sample_docker_compose_project_dir: Path) -> None:
+    backup_adapter = DockerComposeBackupAdapter()
+
+    dummy_storage_info = {
+        "service": DockerComposeService(
+            name="service",
+            container_name="service",
+            image="ubuntu",
+            hostname="service",
+            volumes=[
+                Volume(name="volume1", mount_point=Path("/mount1")),
+                Volume(name="volume1", mount_point=Path("/mount2")),
+            ],
+            bind_mounts=[HostDirectory(path=Path("bind_mount"), mount_point=("/mount3"))],
+        ),
+        "mysql_service": DockerComposeService(
+            name="mysql_service",
+            container_name="mysql_service",
+            image="mysql",
+            hostname="mysql_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+    }
+
+    backup_config = backup_adapter.generate_backup_config(storage_info=dummy_storage_info)
+
+    assert backup_config == {
+        "service": [
+            {
+                "type": "bind_mount_backup",
+                "config": {
+                    "bind_mounts": ["<<<>>>"],
+                },
+            },
+            {
+                "type": "volume_backup",
+                "config": {
+                    "volumes": ["<<<>>>"],
+                },
+            },
+        ],
+        "mysql_service": [
+            {
+                "type": "mysql_backup",
+                "config": {"database": "<<<>>>", "user": "<<<>>>", "password": "<<<>>>"},
+            }
+        ],
+    }

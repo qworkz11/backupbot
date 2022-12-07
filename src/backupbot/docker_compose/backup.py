@@ -5,7 +5,7 @@
 import json
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Dict, Generator, List, Tuple, Union
 
 from docker import DockerClient, from_env
 
@@ -87,8 +87,33 @@ class DockerComposeBackupAdapter(BackupAdapter):
 
         return backup_scheme
 
-    def generate_backup_config(self, storage_info: Dict[str, DockerComposeService]) -> Optional[Path]:
-        backup_config: Dict[str] = {}
+    def generate_backup_config(
+        self, storage_info: Dict[str, DockerComposeService]
+    ) -> Dict[str, List[Dict[str, Union[str, Dict]]]]:
+        """Generates a backup configuration template for docker-compose systems.
+
+        Args:
+            storage_info (Dict[str, DockerComposeService]): Parsed docker-compose storage info.
+
+        Returns:
+            Dict[str, List[Dict[str, Union[str, Dict]]]]: Backup configuration template.
+        """
+        backup_config: Dict[str, List[Dict[str, Union[str, Dict]]]] = {}
+
+        for _, service in storage_info.items():
+            backup_config[service.name] = []
+            if len(service.bind_mounts) != 0:
+                backup_config[service.name].append({"type": "bind_mount_backup", "config": {"bind_mounts": ["<<<>>>"]}})
+
+            if len(service.volumes) != 0:
+                backup_config[service.name].append({"type": "volume_backup", "config": {"volumes": ["<<<>>>"]}})
+
+            if "mysql" in service.image:
+                backup_config[service.name].append(
+                    {"type": "mysql_backup", "config": {"database": "<<<>>>", "user": "<<<>>>", "password": "<<<>>>"}}
+                )
+
+        return backup_config
 
     @contextmanager
     def stopped_system(self, storage_info: Dict[str, DockerComposeService] = None) -> Generator:
