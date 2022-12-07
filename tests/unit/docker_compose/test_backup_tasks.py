@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable
 
 import pytest
 from pytest import LogCaptureFixture, MonkeyPatch
@@ -52,8 +52,8 @@ def test_docker_bind_mount_backup_task_backs_up_all_bind_mounts(
         image="some_image",
         hostname="service1",
         bind_mounts=[
-            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
-            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
+            HostDirectory(path=dummy_bind_mount_dir.joinpath("bind_mount1"), mount_point=Path("/mount1")),
+            HostDirectory(path=dummy_bind_mount_dir.joinpath("bind_mount2"), mount_point=Path("/mount2")),
         ],
         volumes=[],
     )
@@ -95,8 +95,8 @@ def test_docker_bind_mount_backup_task_backs_up_selected_bind_mounts(
         image="some_image",
         hostname="service1",
         bind_mounts=[
-            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount1"), Path("/mount1")),
-            HostDirectory(dummy_bind_mount_dir.joinpath("bind_mount2"), Path("/mount2")),
+            HostDirectory(path=dummy_bind_mount_dir.joinpath("bind_mount1"), mount_point=Path("/mount1")),
+            HostDirectory(path=dummy_bind_mount_dir.joinpath("bind_mount2"), mount_point=Path("/mount2")),
         ],
         volumes=[],
     )
@@ -153,7 +153,7 @@ def test_docker_volume_backup_task_prepare_volume_backup(tmp_path: Path, monkeyp
     target_dir.mkdir()
     temp_dir.mkdir()
 
-    volumes = [Volume("volume1", Path("/mount1")), Volume("volume2", Path("/mount2"))]
+    volumes = [Volume(name="volume1", mount_point=Path("/mount1")), Volume(name="volume2", mount_point=Path("/mount2"))]
 
     backup_task = DockerVolumeBackupTask([volume.name for volume in volumes])
 
@@ -197,7 +197,7 @@ def test_docker_volume_backup_call_creates_tar_files_in_temporary_directory(
     target_dir = tmp_path.joinpath("target")
     target_dir.mkdir()
 
-    volumes = [Volume("test_volume", Path("/tmp/volume"))]
+    volumes = [Volume(name="test_volume", mount_point=Path("/tmp/volume"))]
 
     service = DockerComposeService(
         name="volume_service",
@@ -233,7 +233,7 @@ def test_docker_volume_backup_call_with_failing_docker_container(
         lambda *_: [BackupItem(failing_tar_command, Path("test_volume.tar.gz"), Path("/"))],
     )
 
-    volumes = [Volume("test_volume", Path("/tmp/volume"))]
+    volumes = [Volume(name="test_volume", mount_point=Path("/tmp/volume"))]
 
     service = DockerComposeService(
         name="volume_service",

@@ -158,6 +158,8 @@ The system is paused during the time of the backup to avoid data inconsistencies
 
 ### CLI Parameters
 
+Backup tool:
+
 ```shell
 backupbot -h
 usage: backupbot [-h] [-r ROOT] {docker-compose} destination backup_config
@@ -170,6 +172,24 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   -r ROOT, --root ROOT  Path to service root directory.
+```
+
+Command to create a template backup configuration file:
+
+```shell
+backupbot-confgen -h
+usage: backupbot-confgen [-h] [-r ROOT] [-o OUT_NAME] [-d OUT_DIRECTORY] {docker-compose}
+
+positional arguments:
+  {docker-compose}      Specifies the backup adapter to use.
+
+options:
+  -h, --help            show this help message and exit
+  -r ROOT, --root ROOT  Path to service directory to backup.
+  -o OUT_NAME, --out-name OUT_NAME
+                        Backup configuration file name (must end with .json).
+  -d OUT_DIRECTORY, --out-directory OUT_DIRECTORY
+                        Target directory for the generated files.
 ```
 
 ### Manually Starting a Docker Service Using Backed Up Volumes/Bind-Mounts

@@ -19,6 +19,10 @@ class BackupAdapter(ABC):
         ...
 
     @abstractmethod
+    def generate_backup_config(self, storage_info: Dict[str, AbstractStorageInfo]) -> Optional[Path]:
+        ...
+
+    @abstractmethod
     def parse_backup_scheme(self, file: Path) -> Dict[str, List[AbstractBackupTask]]:
         ...
 

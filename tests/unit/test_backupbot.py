@@ -5,17 +5,17 @@ from logging import ERROR
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-import backupbot.docker_compose.backup_tasks
 import pytest
+from docker import DockerClient
+from pytest import LogCaptureFixture, MonkeyPatch
+
+import backupbot.docker_compose.backup_tasks
 from backupbot.abstract.backup_task import AbstractBackupTask
 from backupbot.abstract.storage_info import AbstractStorageInfo
 from backupbot.backupbot import BackupBot
-from docker import DockerClient
-from pytest import LogCaptureFixture, MonkeyPatch
 from tests.utils.dummies import create_dummy_task
 
 
-@dataclass
 class DummyStorageInfo(AbstractStorageInfo):
     name: str
     unused_value: str
@@ -45,15 +45,15 @@ def raise_error(exception: Exception, msg: Optional[str] = None) -> None:
 
 def test_init_raises_error_when_adapter_unknown() -> None:
     with pytest.raises(ValueError):
-        BackupBot(Path("unimportant"), Path("unimportant"), Path("unimportant"), adapter="unknown_cri")
+        BackupBot(root=Path("unimportant"), destination_directory=Path("unimportant"), adapter="unknown_adapter")
 
 
 def test_create_service_backup_structure(tmp_path: Path) -> None:
-    bub = BackupBot(root=Path("unimportant"), destination=tmp_path, backup_config=Path("unimportant"))
+    bub = BackupBot(root=Path("unimportant"), destination_directory=tmp_path, backup_config=Path("unimportant"))
 
     storage_info = {
-        "service1": DummyStorageInfo("service1", "some_value"),
-        "service2": DummyStorageInfo("service2", "some_value"),
+        "service1": DummyStorageInfo(name="service1", unused_value="some_value"),
+        "service2": DummyStorageInfo(name="service2", unused_value="some_value"),
     }
     backup_tasks = {
         "service1": [create_dummy_task("dummy_task1"), create_dummy_task("dummy_task2")],
@@ -76,11 +76,11 @@ def test_create_service_backup_structure(tmp_path: Path) -> None:
 
 
 def test_create_service_backup_structure_creates_directories_only_when_specified_in_config_file(tmp_path: Path) -> None:
-    bub = BackupBot(root=Path("unimportant"), destination=tmp_path, backup_config=Path("unimportant"))
+    bub = BackupBot(root=Path("unimportant"), destination_directory=tmp_path, backup_config=Path("unimportant"))
 
     storage_info = {
-        "service1": DummyStorageInfo("service1", "some_value"),
-        "service2": DummyStorageInfo("service2", "some_value"),
+        "service1": DummyStorageInfo(name="service1", unused_value="some_value"),
+        "service2": DummyStorageInfo(name="service2", unused_value="some_value"),
     }
     backup_tasks = {"service1": [create_dummy_task("dummy_task1")]}
 
@@ -102,7 +102,7 @@ def test_backupbot_backs_up_docker_compose_bind_mount(
 
     bub = BackupBot(
         root=sample_docker_compose_project_dir,
-        destination=tmp_path,
+        destination_directory=tmp_path,
         backup_config=backup_config_file,
         adapter="docker-compose",
     )
@@ -110,7 +110,7 @@ def test_backupbot_backs_up_docker_compose_bind_mount(
     monkeypatch.setattr(backupbot.docker_compose.backup_tasks, "timestamp", lambda *_: "TIMESTAMP")
 
     with running_docker_compose_project(compose_file) as _:
-        bub.run()
+        bub.run_backup()
 
     assert len(list(tmp_path.iterdir())) == 1
     assert tmp_path.joinpath("bind_mount_service").is_dir()
@@ -140,13 +140,13 @@ def test_backupbot_restarts_containers_after_backup(
 
     bub = BackupBot(
         root=sample_docker_compose_project_dir,
-        destination=tmp_path,
+        destination_directory=tmp_path,
         backup_config=backup_config_file,
         adapter="docker-compose",
     )
 
     with running_docker_compose_project(compose_file) as _:
-        bub.run()
+        bub.run_backup()
         running_containers = [
             container.name for container in docker_client.containers.list(filters={"status": "running"})
         ]
@@ -154,7 +154,7 @@ def test_backupbot_restarts_containers_after_backup(
 
 
 def test_run_backup_tasks_logs_not_a_directory_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
-    bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
+    bub = BackupBot(Path("unimportant"), destination_directory=Path("unimportant"), backup_config=Path("unimportant"))
     monkeypatch.setattr(
         RaisingBackupTask, "__call__", lambda *_, **__: raise_error(NotADirectoryError, "not a directory error")
     )
@@ -171,7 +171,7 @@ def test_run_backup_tasks_logs_not_a_directory_error(caplog: LogCaptureFixture, 
 
 
 def test_run_backup_tasks_logs_runtime_error(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
-    bub = BackupBot(Path("unimportant"), destination=Path("unimportant"), backup_config=Path("unimportant"))
+    bub = BackupBot(Path("unimportant"), destination_directory=Path("unimportant"), backup_config=Path("unimportant"))
     monkeypatch.setattr(RaisingBackupTask, "__call__", lambda *_, **__: raise_error(RuntimeError, "runtime error"))
 
     backup_tasks: Dict[str, List[AbstractBackupTask]] = {"service_name": [RaisingBackupTask()]}
@@ -183,3 +183,11 @@ def test_run_backup_tasks_logs_runtime_error(caplog: LogCaptureFixture, monkeypa
         ERROR,
         "Failed to execute backup task 'RaisingBackupTask': 'runtime error'.",
     ) in caplog.record_tuples
+
+
+def test_generate_backup_config(tmp_path: Path, sample_docker_compose_project_dir: Path) -> None:
+    bub = BackupBot(root=sample_docker_compose_project_dir, destination_directory=Path("unused"))
+
+    bub.generate_backup_config(target_directory=tmp_path)
+
+    assert tmp_path.joinpath("backup-config.json").is_file()

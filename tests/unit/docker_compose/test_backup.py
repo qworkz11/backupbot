@@ -2,8 +2,11 @@ from pathlib import Path
 from typing import Callable, List
 from unicodedata import bidirectional
 
-import backupbot.docker_compose.backup
 import pytest
+from docker import DockerClient
+from pytest import MonkeyPatch
+
+import backupbot.docker_compose.backup
 from backupbot.data_structures import HostDirectory, Volume
 from backupbot.docker_compose.backup import DockerComposeBackupAdapter
 from backupbot.docker_compose.backup_tasks import (
@@ -12,8 +15,6 @@ from backupbot.docker_compose.backup_tasks import (
     DockerVolumeBackupTask,
 )
 from backupbot.docker_compose.storage_info import DockerComposeService
-from docker import DockerClient
-from pytest import MonkeyPatch
 
 test_system_storage_info = {
     "bind_mount_service": DockerComposeService(
@@ -84,7 +85,6 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
 ) -> None:
     dba = DockerComposeBackupAdapter()
 
-    # plit these up to enable better debugging...
     parsed = dba._parse_compose_file(file=dummy_docker_compose_file, root_directory=tmp_path)
     compare = {
         "service1": DockerComposeService(
@@ -92,10 +92,14 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
             container_name="service1",
             image="image1",
             hostname="hostname1",
-            bind_mounts=[HostDirectory(tmp_path.joinpath("service1_bind_mount1"), Path("/service1/bind_mount1/path"))],
+            bind_mounts=[
+                HostDirectory(
+                    path=tmp_path.joinpath("service1_bind_mount1"), mount_point=Path("/service1/bind_mount1/path")
+                )
+            ],
             volumes=[
-                Volume("service1_volume1", Path("/service1/volume1/path")),
-                Volume("service1_volume2", Path("/service1/volume2/path")),
+                Volume(name="service1_volume1", mount_point=Path("/service1/volume1/path")),
+                Volume(name="service1_volume2", mount_point=Path("/service1/volume2/path")),
             ],
         ),
         "service2": DockerComposeService(
@@ -104,12 +108,16 @@ def test_docker_backup_adapter__parse_compose_file_parses_docker_compose_file_co
             image="source/image",
             hostname="hostname2",
             bind_mounts=[
-                HostDirectory(tmp_path.joinpath("service2_bind_mount1"), Path("/service2/bind_mount1/path")),
-                HostDirectory(tmp_path.joinpath("service2_bind_mount2"), Path("/service2/bind_mount2/path")),
+                HostDirectory(
+                    path=tmp_path.joinpath("service2_bind_mount1"), mount_point=Path("/service2/bind_mount1/path")
+                ),
+                HostDirectory(
+                    path=tmp_path.joinpath("service2_bind_mount2"), mount_point=Path("/service2/bind_mount2/path")
+                ),
             ],
             volumes=[
-                Volume("service2_volume1", Path("/service2/volume1/path")),
-                Volume("service2_volume2", Path("/service2/volume2/path")),
+                Volume(name="service2_volume1", mount_point=Path("/service2/volume1/path")),
+                Volume(name="service2_volume2", mount_point=Path("/service2/volume2/path")),
             ],
         ),
     }
@@ -230,3 +238,54 @@ def test_stopped_system_does_not_restart_system_when_it_has_not_been_running(
     assert "bind_mount_service" not in containers
     assert "volume_service" not in containers
     assert "mysql_service" not in containers
+
+
+def test_generate_backup_config(sample_docker_compose_project_dir: Path) -> None:
+    backup_adapter = DockerComposeBackupAdapter()
+
+    dummy_storage_info = {
+        "service": DockerComposeService(
+            name="service",
+            container_name="service",
+            image="ubuntu",
+            hostname="service",
+            volumes=[
+                Volume(name="volume1", mount_point=Path("/mount1")),
+                Volume(name="volume1", mount_point=Path("/mount2")),
+            ],
+            bind_mounts=[HostDirectory(path=Path("bind_mount"), mount_point=("/mount3"))],
+        ),
+        "mysql_service": DockerComposeService(
+            name="mysql_service",
+            container_name="mysql_service",
+            image="mysql",
+            hostname="mysql_service",
+            volumes=[],
+            bind_mounts=[],
+        ),
+    }
+
+    backup_config = backup_adapter.generate_backup_config(storage_info=dummy_storage_info)
+
+    assert backup_config == {
+        "service": [
+            {
+                "type": "bind_mount_backup",
+                "config": {
+                    "bind_mounts": ["<<<>>>"],
+                },
+            },
+            {
+                "type": "volume_backup",
+                "config": {
+                    "volumes": ["<<<>>>"],
+                },
+            },
+        ],
+        "mysql_service": [
+            {
+                "type": "mysql_backup",
+                "config": {"database": "<<<>>>", "user": "<<<>>>", "password": "<<<>>>"},
+            }
+        ],
+    }

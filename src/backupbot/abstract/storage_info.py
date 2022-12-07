@@ -1,7 +1,10 @@
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from json import dumps
+from typing import Dict
+
+from pydantic import BaseModel
 
 
-@dataclass
-class AbstractStorageInfo(ABC):
+class AbstractStorageInfo(BaseModel):
     name: str
