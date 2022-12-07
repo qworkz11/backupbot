@@ -2,8 +2,9 @@
 
 """Main Backupbot class."""
 
+import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Literal, Optional
 
 from backupbot.abstract.backup_adapter import BackupAdapter
 from backupbot.abstract.backup_task import AbstractBackupTask
@@ -20,9 +21,9 @@ class BackupBot:
     def __init__(
         self,
         root: Path,
-        destination: Path,
-        backup_config: Path,
-        adapter: str = "docker-compose",
+        destination_directory: Path,
+        adapter: Literal["docker-compose"] = "docker-compose",
+        backup_config: Optional[Path] = None,
         update_major: bool = False,
     ) -> None:
         """Constructor.
@@ -35,7 +36,7 @@ class BackupBot:
                 False.
         """
         self.root = root
-        self.destination = destination
+        self.dst_directory = destination_directory
         self.backup_config: Path = backup_config
         self.cri = adapter
         self.update_major = update_major
@@ -69,7 +70,7 @@ class BackupBot:
                 dir_names_unique = set(dir_names)
 
                 for name in dir_names_unique:
-                    subdir_path = self.destination.joinpath(service.name, name)
+                    subdir_path = self.dst_directory.joinpath(service.name, name)
                     if not subdir_path.is_dir():
                         subdir_path.mkdir(parents=True)
 
@@ -102,7 +103,7 @@ class BackupBot:
 
         return storage_info
 
-    def run(self) -> None:
+    def run_backup(self) -> None:
         """Executes the backup pipeline provided through the provided backup adapter.
 
         Backup steps:
@@ -129,6 +130,11 @@ class BackupBot:
             RuntimeError: If the loaded config files cannot be parsed.
             RuntimeError: If the backup scheme cannot be parsed.
         """
+        if not self._ready_for_backup():
+            raise RuntimeError(
+                f"Not ready for backup: Specify a backup target directory and a backup configuration file."
+            )
+
         storage_info = self.parse_storage_info()
 
         try:
@@ -172,7 +178,8 @@ class BackupBot:
                 try:
                     logger.info(f"Running '{task.__class__.__qualname__}' for service '{service_name}'...")
                     task_files = task(
-                        storage_info[service_name], self.destination.joinpath(service_name, type(task).target_dir_name)
+                        storage_info[service_name],
+                        self.dst_directory.joinpath(service_name, type(task).target_dir_name),
                     )
                     logger.info(f"Finished '{task_str}': {task_files}")
                     stats["success"] += 1
@@ -192,5 +199,26 @@ class BackupBot:
             logger.info(f"Finished backup of service '{service_name}'.")
         return stats
 
-    def generate_backup_config(self, storage_files: List[Path]) -> None:
-        pass
+    def generate_backup_config(self, target_directory: Path, filename: str = "backup-config.json") -> None:
+        """Generates a backup configuration template using the selected backup adapter.
+
+        Args:
+            target_directory (Path): Directory to write the created file to.
+            filename (str, optional): JSON file name. Defaults to "backup-config.json".
+
+        Raises:
+            RuntimeError: When the filename already exists at the specified location.
+        """
+        storage_info = self.parse_storage_info()
+
+        path = target_directory.joinpath(filename)
+        if path.is_file():
+            raise RuntimeError(f"File '{path}' already exists.")
+
+        with open(path, "w") as fd:
+            json.dump(self.backup_adapter.generate_backup_config(storage_info), fd, indent=4)
+
+        logger.info(f"Finised generation of backup configuration file: '{path}'.")
+
+    def _ready_for_backup(self) -> bool:
+        return self.backup_config is not None and self.dst_directory is not None

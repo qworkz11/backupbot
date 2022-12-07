@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable
 
 import pytest
 from pytest import LogCaptureFixture, MonkeyPatch
